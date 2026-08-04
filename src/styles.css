@@ -538,6 +538,22 @@ body.dragging .drop-veil { opacity: 1; }
 .picker-row[aria-selected="true"] .picker-dims { color: var(--ink); }
 .picker-empty { margin: 0; padding: 22px 14px; color: var(--muted); text-align: center; }
 
+/* Keeping, renaming and dropping a saved size happen on the row itself. */
+.row-action {
+  flex: 0 0 auto;
+  min-height: 24px;
+  width: 24px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  opacity: 0;
+}
+.picker-row:hover .row-action,
+.picker-row[aria-selected="true"] .row-action { opacity: 1; }
+.row-action:hover:not(:disabled) { background: #2a3444; color: var(--ink); }
+
 .picker-foot {
   display: flex; gap: 14px;
   padding: 9px 14px;

@@ -84,6 +84,32 @@ const row = (kind, name, detail, w, h, extra = {}) =>
 
 const presetRow = (p) => row('preset', p.name, p.group, p.w, p.h, { id: p.id });
 
+const savedRow = (s) => row('saved', s.name, 'Saved size', s.w, s.h, { savedId: s.id });
+
+// Saved sizes are matched the same way presets are — every token has to land —
+// but over a much smaller vocabulary: the name you gave it and its numbers.
+function savedTerms(s) {
+  const terms = new Set([norm(s.name), `${s.w}x${s.h}`, String(s.w), String(s.h), ratioLabel(s.w, s.h)]);
+  for (const word of norm(s.name).split(' ')) if (word.length > 1) terms.add(word);
+  return [...terms];
+}
+
+function matchSaved(saved, tokens) {
+  const scored = [];
+  for (const s of saved) {
+    const terms = savedTerms(s);
+    let total = 0;
+    for (const token of tokens) {
+      const score = tokenScore(token, terms);
+      if (score === 0) { total = -1; break; }
+      total += score;
+    }
+    if (total >= 0) scored.push({ s, score: total / tokens.length });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map(({ s }) => s);
+}
+
 // Literal pixels: "1200x630", "1200 by 630", "1200 630". Two small numbers are
 // a ratio, not a 16-pixel-wide image, so they fall through to the ratio parser.
 function parseDimensions(q) {
@@ -113,11 +139,13 @@ function parseRatio(q) {
  * @param {string[]} recents preset ids, most recent first
  * @returns {Array} ranked rows, best first
  */
-export function search(raw, recents = []) {
+export function search(raw, recents = [], saved = []) {
   const q = norm(raw || '');
 
   if (!q) {
-    // Cold start: what they used last, then the sizes most people want.
+    // Cold start: your own sizes first, then what you used last, then the
+    // sizes most people want.
+    const savedRows = saved.map((s) => ({ ...savedRow(s), section: 'Saved' }));
     const recentRows = recents
       .map((id) => PRESETS.find((p) => p.id === id))
       .filter(Boolean)
@@ -125,11 +153,17 @@ export function search(raw, recents = []) {
     const seen = new Set(recentRows.map((r) => r.id));
     const hotRows = HOT.filter((p) => !seen.has(p.id))
       .map((p) => ({ ...presetRow(p), section: 'Popular' }));
-    return [...recentRows, ...hotRows];
+    return [...savedRows, ...recentRows, ...hotRows];
   }
 
   const out = [];
   const push = (r) => { if (!out.some((o) => o.key === r.key)) out.push(r); };
+
+  // 0. Your own sizes answer first: you named it, so you meant it.
+  const savedTokens = q.split(' ').filter(Boolean);
+  for (const s of matchSaved(saved, savedTokens)) {
+    push({ ...savedRow(s), section: 'Saved' });
+  }
 
   // 1. Exact pixels win outright — but if a real preset has those dimensions,
   //    show it by name first. "1200 by 630" should say "Open Graph".
