@@ -211,7 +211,9 @@ export function createSizePicker({
       intakeTitle.textContent = prompt;
       intakeTemplate.hidden = !templateSize;
       if (templateSize) {
-        intakeTemplate.textContent = `Use its size — ${templateSize.w} × ${templateSize.h}`;
+        // Write into the label, not the button: the button also holds an icon.
+        intakeTemplate.querySelector('[data-label]').textContent =
+          `Use its size — ${templateSize.w} × ${templateSize.h}`;
       }
       intake.hidden = false;
       input.value = '';
