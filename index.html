@@ -35,12 +35,19 @@
       <div id="readout" class="readout" hidden>
         <span class="chip">Cutting <strong id="cropSize">—</strong></span>
         <span id="qualityChip" class="chip good">Quality <strong id="quality">—</strong></span>
+        <span id="scaleChip" class="chip" hidden></span>
       </div>
+
+      <button id="fitToggle" class="stage-toggle" type="button" aria-pressed="false" hidden>
+        <span id="fitLabel">Fit to stage</span>
+        <kbd>F</kbd>
+      </button>
 
       <div id="hints" class="hints" hidden>
         <span><kbd>drag</kbd> move</span>
         <span><kbd>scroll</kbd> zoom</span>
         <span><kbd>0</kbd> fill</span>
+        <span><kbd>f</kbd> fit</span>
         <span><kbd>[</kbd><kbd>]</kbd> switch</span>
         <span class="hint-key"><kbd>↵</kbd> keep &amp; next</span>
       </div>

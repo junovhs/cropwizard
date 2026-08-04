@@ -23,6 +23,14 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
 
   let image = null;
   let aspect = 1;
+  let targetW = 1, targetH = 1;
+  // DEC-03: the frame is the output at its real size on screen. `fitMode` is the
+  // explicit opt-out for close work; `frameScale` is how much of true size the
+  // frame is actually showing (below 1 means the stage forced a cap).
+  let fitMode = false;
+  let frameScale = 1;
+  // The framing to hold on to while the frame itself is changing shape or size.
+  let morph = null;
   let vw = 1, vh = 1, dpr = 1;
   let dragging = null;
   const pointers = new Map();
@@ -42,9 +50,18 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     let moving = false;
     for (const s of springs) moving = s.step(dt) || moving;
     moving = snapPulse.step(dt) || moving;
-    // The frame's aspect morph changes what counts as legal, so keep the
-    // transform's resting targets honest for the whole length of the morph.
-    if (!dragging && (!frameW.settled || !frameH.settled)) settle();
+    // The frame's morph changes both what counts as legal and what the same
+    // crop maps to on screen. Re-deriving the transform from the crop we started
+    // with keeps the cut itself untouched while the frame grows or shrinks —
+    // which is what makes switching between true size and fit a pure change of
+    // magnification rather than a change of framing.
+    const morphing = !frameW.settled || !frameH.settled;
+    if (!dragging) {
+      if (morph) {
+        applyFraming(morph);
+        if (!morphing) { morph = null; settle(); }
+      } else if (morphing) settle();
+    }
     draw();
     // Publish every frame, not just on release: the spring is what decides the
     // final crop, so anything that reads the framing must see where it landed.
@@ -85,10 +102,18 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     };
   }
 
+  // True size by default: a 32x64 target is a 32x64 rectangle on screen, so the
+  // smallness of a small crop is a fact you can see rather than a number you
+  // have to imagine. Anything larger than the stage is capped down to fit, and
+  // `frameScale` records by how much so the UI can say so.
   function layoutFrame(immediate = false) {
-    const h = Math.min(vh - FRAME_PAD * 2, (vw - FRAME_PAD * 2) / aspect);
-    const height = Math.max(40, h);
-    const width = height * aspect;
+    const roomW = Math.max(40, vw - FRAME_PAD * 2);
+    const roomH = Math.max(40, vh - FRAME_PAD * 2);
+    const fits = Math.min(roomW / targetW, roomH / targetH);
+    frameScale = fitMode ? fits : Math.min(1, fits);
+    // A sub-pixel frame would be unusable; a handful of pixels still reads.
+    const width = Math.max(8, targetW * frameScale);
+    const height = Math.max(8, targetH * frameScale);
     if (immediate) { frameW.jump(width); frameH.jump(height); }
     else { frameW.set(width); frameH.set(height); }
   }
@@ -414,10 +439,25 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
       loop.kick();
     },
     setTarget(w, h) {
+      targetW = w;
+      targetH = h;
       aspect = w / h;
+      morph = image ? readFraming() : null;
       layoutFrame(false);
       loop.kick();
     },
+    // The fit toggle. Only the magnification changes: the crop is carried across
+    // the morph untouched.
+    setFit(on) {
+      if (fitMode === on) return;
+      fitMode = on;
+      morph = image ? readFraming() : null;
+      layoutFrame(false);
+      loop.kick();
+    },
+    isFit: () => fitMode,
+    // 1 while the frame is at true size; below 1 once the stage has capped it.
+    getFrameScale: () => frameScale,
     nudge(dx, dy) {
       if (!image) return;
       beginInteraction();

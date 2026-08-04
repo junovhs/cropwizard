@@ -68,6 +68,34 @@ function setChromeVisible(on) {
   $('#empty').hidden = on;
   $('#readout').hidden = !on;
   $('#hints').hidden = !on;
+  $('#fitToggle').hidden = !on;
+}
+
+// ---- true size vs fit ------------------------------------------------------
+
+// The frame is the output at its real size (DEC-03). Two things need saying:
+// which mode you are in, and — when the target is bigger than the stage — that
+// what you are looking at is a reduction rather than the real thing.
+function syncFitChrome() {
+  const fit = view.isFit();
+  const percent = Math.round(view.getFrameScale() * 100);
+  $('#fitToggle').setAttribute('aria-pressed', String(fit));
+  $('#fitLabel').textContent = fit ? 'True size' : 'Fit to stage';
+
+  const capped = !fit && percent < 100;
+  const chip = $('#scaleChip');
+  chip.hidden = !fit && !capped;
+  chip.classList.toggle('warn', capped);
+  chip.textContent = fit
+    ? `Fit to stage — ${percent}%`
+    : capped ? `Bigger than the stage — shown at ${percent}%` : '';
+}
+
+function toggleFit() {
+  const next = !view.isFit();
+  view.setFit(next);
+  syncFitChrome();
+  announce(next ? 'Fit to stage' : 'True size');
 }
 
 // ---- intake ----------------------------------------------------------------
@@ -202,6 +230,7 @@ function applyTarget({ w, h, name }) {
   if (!(w > 0 && h > 0)) return;
   store.set({ target: { w, h, label: name } });
   view.setTarget(w, h);
+  syncFitChrome();
 
   $('#sizeName').textContent = name;
   $('#sizeDims').textContent = `${w} × ${h}`;
@@ -355,6 +384,8 @@ document.addEventListener('keydown', (e) => {
     ArrowUp: () => view.nudge(0, px),
     ArrowDown: () => view.nudge(0, -px),
     '0': () => view.fill(),
+    f: toggleFit,
+    F: toggleFit,
     '=': () => view.zoomBy(1.2),
     '+': () => view.zoomBy(1.2),
     '-': () => view.zoomBy(1 / 1.2),
@@ -373,7 +404,9 @@ document.addEventListener('keydown', (e) => {
 
 // The filmstrip appearing changes the stage height, so watch the element
 // itself rather than the window.
-new ResizeObserver(() => view.resize()).observe(stage);
+new ResizeObserver(() => { view.resize(); syncFitChrome(); }).observe(stage);
+
+$('#fitToggle').addEventListener('click', toggleFit);
 
 // ---- boot ------------------------------------------------------------------
 
