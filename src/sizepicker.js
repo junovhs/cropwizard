@@ -2,7 +2,7 @@
 
 import { search, ratioLabel } from './search.js';
 
-const RECENTS_KEY = 'cropcut.recents';
+const RECENTS_KEY = 'cropwizard.recents';
 const MAX_RECENTS = 5;
 
 const loadRecents = () => {

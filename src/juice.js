@@ -1,4 +1,4 @@
-// Motion primitives. Everything that moves in cropcut moves through here, so
+// Motion primitives. Everything that moves in cropwizard moves through here, so
 // the whole app shares one feel and one reduced-motion switch.
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');

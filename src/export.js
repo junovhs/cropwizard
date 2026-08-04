@@ -166,7 +166,9 @@ export async function exportAll(items, target, options, onProgress) {
     return { filename: files[0].name, count: 1 };
   }
   const zip = await makeZip(files);
-  const filename = `${sanitize(options.label || 'cropcut')}-${target.w}x${target.h}.zip`;
+  // The archive is named after the product first so a folder of exports sorts
+  // together; the size label, when there is one, follows it.
+  const filename = `${sanitize(`cropwizard ${options.label || ''}`)}-${target.w}x${target.h}.zip`;
   download(zip, filename);
   return { filename, count: files.length };
 }
