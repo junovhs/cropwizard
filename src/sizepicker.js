@@ -42,7 +42,7 @@ function rowAction(label, glyph, onRun) {
 }
 
 export function createSizePicker({
-  root, input, list, trigger, intake, intakeTitle, intakeSkip, intakeTemplate, onPick,
+  root, input, list, trigger, intake, intakeTitle, intakeDims, escHint, getCurrent, onPick,
 }) {
   let rows = [];
   let cursor = 0;
@@ -50,6 +50,8 @@ export function createSizePicker({
   let saved = loadSaved();
   // Set while something is waiting on an answer from the palette (intake).
   let asking = null;
+  // The arriving image's own dimensions, offered as one of the answers.
+  let template = null;
   // While naming, the one text box in the palette is the name box: same focus,
   // same Enter, no second dialog.
   let naming = null;   // {w, h, id?} — saving a new size, or renaming one
@@ -92,6 +94,21 @@ export function createSizePicker({
     if (naming) { renderNaming(); return; }
 
     rows = search(input.value, recents, saved);
+
+    // The arriving image's own size is an answer to the same question, so it is
+    // a row like any other — reachable by keyboard, showing its real numbers,
+    // and saying in words what taking it does to the image.
+    if (template && !input.value.trim()) {
+      rows = [{
+        kind: 'template',
+        key: 'template',
+        name: 'Its own size',
+        detail: 'Take the size, skip this image',
+        w: template.w,
+        h: template.h,
+        section: 'From this image',
+      }, ...rows];
+    }
     cursor = Math.min(cursor, Math.max(0, rows.length - 1));
 
     if (!rows.length) {
@@ -184,7 +201,9 @@ export function createSizePicker({
     }
     // Asking on intake is the same palette answering a question someone else
     // posed, so the answer goes back to the asker rather than to onPick.
-    const answered = settle({ kind: 'pick', row: r });
+    const answered = settle(r.kind === 'template'
+      ? { kind: 'template' }
+      : { kind: 'pick', row: r });
     close();
     if (!answered) onPick(r);
   }
@@ -194,9 +213,21 @@ export function createSizePicker({
     if (!asking) return false;
     const resolve = asking;
     asking = null;
+    template = null;
     intake.hidden = true;
     resolve(answer);
     return true;
+  }
+
+  function updateEscHint() {
+    escHint.textContent = '';
+    const key = document.createElement('kbd');
+    key.textContent = 'esc';
+    const current = getCurrent();
+    const label = asking && current
+      ? ` keep ${current.label} — ${current.w} × ${current.h}`
+      : ' close';
+    escHint.append(key, document.createTextNode(label));
   }
 
   /**
@@ -205,16 +236,14 @@ export function createSizePicker({
    * the answer.
    * @returns {Promise<{kind: 'pick'|'skip'|'template', row?: object}>}
    */
-  function askFor(prompt, templateSize = null) {
+  function askFor(filename, templateSize = null) {
     return new Promise((resolve) => {
       asking = resolve;
-      intakeTitle.textContent = prompt;
-      intakeTemplate.hidden = !templateSize;
-      if (templateSize) {
-        // Write into the label, not the button: the button also holds an icon.
-        intakeTemplate.querySelector('[data-label]').textContent =
-          `Use its size — ${templateSize.w} × ${templateSize.h}`;
-      }
+      template = templateSize;
+      intakeTitle.textContent = filename;
+      intakeDims.textContent = templateSize
+        ? `${templateSize.w} × ${templateSize.h}`
+        : 'Dimensions unavailable';
       intake.hidden = false;
       input.value = '';
       open();
@@ -229,6 +258,7 @@ export function createSizePicker({
     input.select();
     input.focus();
     cursor = 0;
+    updateEscHint();
     render();
     requestAnimationFrame(() => root.classList.add('open'));
   }
@@ -262,18 +292,6 @@ export function createSizePicker({
     action();
   });
 
-  // The examples are the documentation: clicking one types it for you, so the
-  // three ways in are learned by using them rather than by being listed.
-  for (const example of root.querySelectorAll('[data-fill]')) {
-    example.addEventListener('mousedown', (e) => {
-      e.preventDefault();               // keep the focus in the input
-      input.value = example.dataset.fill;
-      cursor = 0;
-      render();
-      input.focus();
-    });
-  }
-
   // Clicking the backdrop dismisses; clicking the panel must not.
   root.addEventListener('mousedown', (e) => { if (e.target === root) close(); });
   trigger.addEventListener('click', open);
@@ -284,9 +302,6 @@ export function createSizePicker({
       root.hidden ? open() : close();
     }
   });
-
-  intakeSkip.addEventListener('click', close);
-  intakeTemplate.addEventListener('click', () => { settle({ kind: 'template' }); close(); });
 
   return { open, close, askFor, isOpen: () => !root.hidden };
 }

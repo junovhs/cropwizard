@@ -128,30 +128,22 @@
 <div id="picker" class="picker" hidden role="dialog" aria-modal="true" aria-label="Choose an output size">
   <div class="picker-panel">
     <div id="pickerIntake" class="picker-intake" hidden>
-      <span id="intakeTitle"></span>
-      <button id="intakeTemplate" class="ghost" type="button" hidden><span class="icon" data-icon="maximize"></span><span data-label>Use its size</span></button>
-      <button id="intakeSkip" class="ghost" type="button">Keep the current size</button>
+      <span class="icon" data-icon="image"></span>
+      <span id="intakeTitle" class="intake-name"></span>
+      <span id="intakeDims" class="intake-dims"></span>
     </div>
-    <div class="picker-head">
+    <label class="picker-head" for="pickerInput">What size do you need?</label>
+    <div class="picker-search">
       <span class="icon picker-mark" data-icon="search"></span>
-      <h2>What size do you need?</h2>
-      <p>Name a platform, describe a shape, or type exact pixels — it understands all three.</p>
-    </div>
-    <input id="pickerInput" class="picker-input" type="text" autocomplete="off" spellcheck="false"
-      role="combobox" aria-expanded="true" aria-controls="pickerList" aria-autocomplete="list"
-      placeholder="Start typing, or try one of these">
-    <div class="picker-examples" aria-label="Examples">
-      <button type="button" class="example" data-fill="instagram story">instagram story</button>
-      <button type="button" class="example" data-fill="16:9">16:9</button>
-      <button type="button" class="example" data-fill="1200 x 630">1200 x 630</button>
-      <button type="button" class="example" data-fill="youtube thumbnail">youtube thumbnail</button>
-      <button type="button" class="example" data-fill="a4 print">a4 print</button>
+      <input id="pickerInput" class="picker-input" type="text" autocomplete="off" spellcheck="false"
+        role="combobox" aria-expanded="true" aria-controls="pickerList" aria-autocomplete="list"
+        placeholder="instagram story · 16:9 · 1200 x 630">
     </div>
     <div id="pickerList" class="picker-list" role="listbox" aria-label="Sizes"></div>
     <div class="picker-foot">
       <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
       <span><kbd>↵</kbd> apply</span>
-      <span><kbd>esc</kbd> close</span>
+      <span id="escHint"><kbd>esc</kbd> close</span>
     </div>
   </div>
 </div>

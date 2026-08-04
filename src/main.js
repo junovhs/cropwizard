@@ -124,9 +124,7 @@ async function intake(fileList) {
     const probe = await decode(files[0]).catch(() => null);
     const dims = probe ? { w: probe.naturalWidth, h: probe.naturalHeight } : null;
     const answer = await picker.askFor(
-      files.length > 1
-        ? `${files.length} images — what size do you need?`
-        : `${files[0].name} — what size do you need?`,
+      files.length > 1 ? `${files[0].name} + ${files.length - 1} more` : files[0].name,
       dims,
     );
     sizeChosen = true;
@@ -344,8 +342,9 @@ const picker = createSizePicker({
   trigger: $('#sizeButton'),
   intake: $('#pickerIntake'),
   intakeTitle: $('#intakeTitle'),
-  intakeSkip: $('#intakeSkip'),
-  intakeTemplate: $('#intakeTemplate'),
+  intakeDims: $('#intakeDims'),
+  escHint: $('#escHint'),
+  getCurrent: () => store.get().target,
   onPick: (r) => { sizeChosen = true; applyTarget({ w: r.w, h: r.h, name: r.name }); },
 });
 
