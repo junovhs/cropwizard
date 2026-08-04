@@ -18,6 +18,7 @@
   </header>
 
   <main class="workspace">
+   <div class="stage-col">
     <section id="stage" class="stage" aria-label="Framing area">
       <canvas id="canvas" tabindex="0"
         aria-label="Viewfinder. The crop frame is fixed at the centre. Drag to move the image beneath it, scroll to zoom."></canvas>
@@ -26,7 +27,7 @@
       <div id="empty" class="empty">
         <div class="empty-inner">
           <h1>Drop your images</h1>
-          <p>Frame them once. Ship them at any size.</p>
+          <p>All of them. Pick a size once, then press <kbd>↵</kbd> through the stack.</p>
           <button id="emptyAdd" class="primary" type="button">Choose images</button>
         </div>
       </div>
@@ -40,10 +41,24 @@
         <span><kbd>drag</kbd> move</span>
         <span><kbd>scroll</kbd> zoom</span>
         <span><kbd>0</kbd> fill</span>
+        <span><kbd>[</kbd><kbd>]</kbd> switch</span>
+        <span class="hint-key"><kbd>↵</kbd> keep &amp; next</span>
       </div>
 
       <div class="drop-veil">Drop to add</div>
     </section>
+
+    <footer id="strip" class="strip" hidden aria-label="Image queue">
+      <div class="strip-head">
+        <div class="progress" role="progressbar" aria-labelledby="progressText">
+          <div id="progressBar"></div>
+        </div>
+        <span id="progressText" class="strip-count">0 / 0 framed</span>
+        <button id="approveAll" class="ghost" type="button">Frame the rest</button>
+      </div>
+      <div id="stripRail" class="strip-rail"></div>
+    </footer>
+   </div>
 
     <aside class="panel" aria-label="Options">
       <section class="block">
