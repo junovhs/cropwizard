@@ -73,6 +73,36 @@
         </button>
         <p class="note">Search by name, pixels or shape.</p>
       </section>
+
+      <section class="block">
+        <h2>Format</h2>
+        <div class="segmented" role="radiogroup" aria-label="File format">
+          <button type="button" role="radio" data-format="png" aria-checked="true">PNG</button>
+          <button type="button" role="radio" data-format="jpeg" aria-checked="false">JPEG</button>
+          <button type="button" role="radio" data-format="webp" aria-checked="false">WebP</button>
+        </div>
+        <div id="qualityRow" class="quality-row" hidden>
+          <label for="qualityInput">Quality</label>
+          <input id="qualityInput" type="range" min="40" max="100" step="1" value="86">
+          <output id="qualityValue" for="qualityInput">86</output>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>File names</h2>
+        <input id="template" class="text-input" type="text" spellcheck="false"
+          aria-describedby="namePreview" value="{name}-{w}x{h}">
+        <p id="namePreview" class="preview">—</p>
+        <p class="note">Tokens: <code>{name}</code> <code>{n}</code> <code>{w}</code> <code>{h}</code> <code>{label}</code> <code>{date}</code></p>
+      </section>
+
+      <section class="block">
+        <button id="export" class="primary export-button" type="button" disabled>
+          <span id="exportLabel">Export</span>
+          <span id="exportFill" class="export-fill" aria-hidden="true"></span>
+        </button>
+        <p class="note" id="exportNote">Nothing to export yet.</p>
+      </section>
     </aside>
   </main>
 </div>

@@ -5,8 +5,10 @@ import { createViewfinder } from './viewfinder.js';
 import { createSizePicker } from './sizepicker.js';
 import { createFilmstrip } from './filmstrip.js';
 import { autoFrame, refit } from './autoframe.js';
+import { FORMATS, DEFAULT_TEMPLATE, expandName, exportAll } from './export.js';
 
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => [...document.querySelectorAll(sel)];
 const canvas = $('#canvas');
 const stage = $('#stage');
 const fileInput = $('#file');
@@ -39,7 +41,7 @@ const view = createViewfinder({
 let stripTimer = null;
 function syncStripSoon() {
   clearTimeout(stripTimer);
-  stripTimer = setTimeout(() => strip.sync(store.get()), 160);
+  stripTimer = setTimeout(() => syncUI(), 160);
 }
 
 // ---- readouts --------------------------------------------------------------
@@ -131,12 +133,19 @@ function activate(index) {
   $('#filename').textContent = item.file.name;
   setChromeVisible(true);
   view.setImage(item.image, item.frame);
-  strip.sync(store.get());
+  syncUI();
   strip.scrollToActive(store.get());
   canvas.focus();
 }
 
 // ---- approval --------------------------------------------------------------
+
+// The filmstrip and the export panel both describe the same queue, so they are
+// always refreshed together.
+function syncUI() {
+  strip.sync(store.get());
+  refreshExport();
+}
 
 const strip = createFilmstrip({
   root: $('#strip'),
@@ -153,7 +162,7 @@ function approve() {
   if (!item) return;
   item.approved = true;
   item.auto = false;
-  strip.sync(store.get());
+  syncUI();
   strip.celebrate(store.get());
 
   const s = store.get();
@@ -163,7 +172,7 @@ function approve() {
     activate(wrapped);
     announce(`Kept. ${s.items.filter((i) => i.approved).length} of ${s.items.length} framed`);
   } else {
-    strip.sync(store.get());
+    syncUI();
     announce(`All ${s.items.length} framed and ready`);
   }
 }
@@ -177,7 +186,7 @@ function approveRest() {
     item.approved = true;
     item.auto = false;
   }
-  strip.sync(store.get());
+  syncUI();
   announce(`All ${s.items.length} framed and ready`);
 }
 
@@ -211,7 +220,7 @@ function applyTarget({ w, h, name }) {
     view.setImage(item.image, item.frame);
     updateReadout(view.getFraming());
   }
-  strip.sync(store.get());
+  syncUI();
   announce(`${name}, ${w} by ${h} pixels`);
 }
 
@@ -221,6 +230,87 @@ createSizePicker({
   list: $('#pickerList'),
   trigger: $('#sizeButton'),
   onPick: (r) => applyTarget({ w: r.w, h: r.h, name: r.name }),
+});
+
+// ---- export ----------------------------------------------------------------
+
+const options = { format: 'png', quality: 0.86, template: DEFAULT_TEMPLATE };
+let exporting = false;
+
+function refreshExport() {
+  const { items, target } = store.get();
+  const count = items.length;
+  const button = $('#export');
+  button.disabled = !count || exporting;
+  $('#exportLabel').textContent = exporting
+    ? 'Exporting…'
+    : count > 1 ? `Export ${count} images` : 'Export';
+
+  // The preview is the contract: whatever it says is what lands on disk.
+  const sample = items[Math.max(0, store.get().activeIndex)] || items[0];
+  $('#namePreview').textContent = sample
+    ? expandName(options.template, {
+        name: sample.name, index: 0, total: count,
+        w: target.w, h: target.h, ext: FORMATS[options.format].ext, label: target.label,
+      })
+    : '—';
+
+  const pending = items.filter((i) => !i.approved).length;
+  $('#exportNote').textContent = !count
+    ? 'Nothing to export yet.'
+    : count === 1 ? 'Downloads as a single image.'
+    : pending ? `Downloads as one ZIP. ${pending} still using the suggested crop.`
+    : 'Downloads as one ZIP.';
+}
+
+function setFormat(format) {
+  options.format = format;
+  for (const b of $$('.segmented button')) {
+    b.setAttribute('aria-checked', String(b.dataset.format === format));
+  }
+  $('#qualityRow').hidden = !FORMATS[format].lossy;
+  refreshExport();
+}
+
+for (const button of $$('.segmented button')) {
+  button.addEventListener('click', () => setFormat(button.dataset.format));
+}
+$('#qualityInput').addEventListener('input', (e) => {
+  options.quality = +e.target.value / 100;
+  $('#qualityValue').textContent = e.target.value;
+});
+$('#template').addEventListener('input', (e) => {
+  options.template = e.target.value || DEFAULT_TEMPLATE;
+  refreshExport();
+});
+
+$('#export').addEventListener('click', async () => {
+  const { items, target } = store.get();
+  if (!items.length || exporting) return;
+  exporting = true;
+  const button = $('#export');
+  const fill = $('#exportFill');
+  button.classList.remove('is-done');
+  fill.style.opacity = '1';
+  fill.style.width = '0%';
+  refreshExport();
+  announce(`Exporting ${items.length} image${items.length === 1 ? '' : 's'}`);
+
+  try {
+    const result = await exportAll(items, target, { ...options, label: target.label },
+      (progress) => { fill.style.width = `${progress * 100}%`; });
+    button.classList.add('is-done');
+    $('#exportLabel').textContent = 'Downloaded';
+    announce(`${result.count} image${result.count === 1 ? '' : 's'} downloaded as ${result.filename}`);
+    setTimeout(() => { button.classList.remove('is-done'); refreshExport(); }, 1600);
+  } catch (error) {
+    announce(`Export failed: ${error.message}`);
+    $('#exportNote').textContent = `Export failed: ${error.message}`;
+  } finally {
+    fill.style.opacity = '0';
+    exporting = false;
+    refreshExport();
+  }
 });
 
 // ---- events ----------------------------------------------------------------

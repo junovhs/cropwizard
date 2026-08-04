@@ -314,6 +314,82 @@ body.dragging .drop-veil { opacity: 1; }
   transition: width .35s var(--ease), height .35s var(--ease);
 }
 
+/* ---- format, names, export ---- */
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raised);
+}
+.segmented button {
+  min-height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.segmented button:hover { background: #2a3444; color: var(--ink); }
+.segmented button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); }
+
+.quality-row { display: flex; align-items: center; gap: 10px; margin-top: 11px; }
+.quality-row[hidden] { display: none; }
+.quality-row label { color: var(--muted); font-size: 12px; }
+.quality-row input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.quality-row output {
+  min-width: 26px;
+  color: var(--ink);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.text-input {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--raised);
+  font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.text-input:focus { border-color: var(--accent); outline: none; }
+.preview {
+  margin: 8px 0 0;
+  overflow: hidden;
+  color: var(--good);
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.note code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--raised);
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.export-button {
+  position: relative;
+  width: 100%;
+  min-height: 44px;
+  overflow: hidden;
+  font-size: 14.5px;
+}
+#exportLabel { position: relative; z-index: 1; }
+/* Progress fills the button itself rather than adding another bar. */
+.export-fill {
+  position: absolute; inset: 0;
+  width: 0;
+  background: rgba(255, 255, 255, .28);
+  transition: width .2s linear, opacity .3s var(--ease);
+}
+.export-button.is-done { background: var(--good); }
+
 /* ---- size palette ---- */
 
 .picker {
