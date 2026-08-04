@@ -26,9 +26,14 @@ function write(list) {
   return list;
 }
 
+/** Every saved size, newest first. Malformed entries are dropped, never thrown. */
 export const loadSaved = read;
 
-// Newest first — the one you just made is the one you are about to look for.
+/**
+ * Keep a size under a name. Newest first — the one you just made is the one you
+ * are about to look for.
+ * @returns {Array} the new list
+ */
 export function addSaved(name, w, h) {
   const item = {
     id: `saved-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
@@ -39,10 +44,12 @@ export function addSaved(name, w, h) {
   return write([item, ...read()]);
 }
 
+/** Rename one saved size; an empty name leaves the old one. @returns {Array} */
 export function renameSaved(id, name) {
   return write(read().map((s) => (s.id === id ? { ...s, name: String(name).trim() || s.name } : s)));
 }
 
+/** Forget one saved size, permanently. @returns {Array} */
 export function removeSaved(id) {
   return write(read().filter((s) => s.id !== id));
 }
