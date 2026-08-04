@@ -6,6 +6,7 @@ import { createSizePicker } from './sizepicker.js';
 import { createFilmstrip } from './filmstrip.js';
 import { autoFrame, refit } from './autoframe.js';
 import { FORMATS, DEFAULT_TEMPLATE, expandName, exportAll } from './export.js';
+import { paintIcons } from './icons.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -542,6 +543,7 @@ $('#fitToggle').addEventListener('click', toggleFit);
 
 // ---- boot ------------------------------------------------------------------
 
+paintIcons();
 setChromeVisible(false);
 syncNaming();
 const boot = store.get().target;

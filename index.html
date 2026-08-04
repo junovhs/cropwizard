@@ -9,11 +9,11 @@
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><b>crop</b><i>wizard</i></div>
+    <div class="brand"><span class="icon brand-mark" data-icon="crop"></span><b>crop</b><i>wizard</i></div>
     <div id="filename" class="filename"></div>
     <div class="spacer"></div>
     <div class="top-actions">
-      <button id="add" type="button">Add images</button>
+      <button id="add" type="button"><span class="icon" data-icon="upload"></span>Add images</button>
     </div>
   </header>
 
@@ -28,7 +28,7 @@
         <div class="empty-inner">
           <h1 id="emptyTitle">Drop an image</h1>
           <p id="emptyText">Pick a size, frame it, take it away. Got a stack? Turn on batch below.</p>
-          <button id="emptyAdd" class="primary" type="button">Choose an image</button>
+          <button id="emptyAdd" class="primary" type="button"><span class="icon" data-icon="image"></span>Choose an image</button>
         </div>
       </div>
 
@@ -39,7 +39,7 @@
       </div>
 
       <button id="fitToggle" class="stage-toggle" type="button" aria-pressed="false" hidden>
-        <span id="fitLabel">Fit to stage</span>
+        <span class="icon" data-icon="maximize"></span><span id="fitLabel">Fit to stage</span>
         <kbd>F</kbd>
       </button>
 
@@ -62,8 +62,8 @@
         </div>
         <span id="progressText" class="strip-count">0 / 0 framed</span>
         <span id="batchNote" class="strip-count">One image at a time</span>
-        <button id="enableBatch" class="ghost" type="button">Enable batch</button>
-        <button id="approveAll" class="ghost" type="button">Frame the rest</button>
+        <button id="enableBatch" class="ghost" type="button"><span class="icon" data-icon="layers"></span>Enable batch</button>
+        <button id="approveAll" class="ghost" type="button"><span class="icon" data-icon="check"></span>Frame the rest</button>
       </div>
       <div id="stripRail" class="strip-rail"></div>
     </footer>
@@ -71,7 +71,7 @@
 
     <aside class="panel" aria-label="Options">
       <section class="block">
-        <h2>Output size</h2>
+        <h2><span class="icon" data-icon="crop"></span>Output size</h2>
         <button id="sizeButton" class="size-button" type="button" aria-haspopup="dialog">
           <span id="sizeSwatch" class="swatch" aria-hidden="true"></span>
           <span class="size-text">
@@ -84,7 +84,7 @@
       </section>
 
       <section class="block">
-        <h2>Format</h2>
+        <h2><span class="icon" data-icon="image"></span>Format</h2>
         <div class="segmented" role="radiogroup" aria-label="File format">
           <button type="button" role="radio" data-format="png" aria-checked="true">PNG</button>
           <button type="button" role="radio" data-format="jpeg" aria-checked="false">JPEG</button>
@@ -98,7 +98,7 @@
       </section>
 
       <section class="block">
-        <h2>File names</h2>
+        <h2><span class="icon" data-icon="clipboard"></span>File names</h2>
         <div id="naming" class="naming">
           <label><input id="nameKeep" type="checkbox" checked> Keep the original name</label>
           <label><input id="nameSize" type="checkbox" checked> Add the size</label>
@@ -107,7 +107,7 @@
         <p id="namePreview" class="preview" aria-live="polite">—</p>
         <p id="namingOverride" class="note" hidden>The template below is in charge. Tick an option to go back to it.</p>
         <details class="advanced">
-          <summary>Name them my way</summary>
+          <summary><span class="icon" data-icon="settings"></span>Name them my way</summary>
           <input id="template" class="text-input" type="text" spellcheck="false"
             aria-label="Filename template" aria-describedby="namePreview" value="{name}-{w}x{h}">
           <p class="note">Tokens: <code>{name}</code> <code>{n}</code> <code>{w}</code> <code>{h}</code> <code>{label}</code> <code>{date}</code></p>
@@ -116,7 +116,7 @@
 
       <section class="block">
         <button id="export" class="primary export-button" type="button" disabled>
-          <span id="exportLabel">Export</span>
+          <span class="icon" data-icon="download"></span><span id="exportLabel">Export</span>
           <span id="exportFill" class="export-fill" aria-hidden="true"></span>
         </button>
         <p class="note" id="exportNote">Nothing to export yet.</p>
@@ -129,10 +129,11 @@
   <div class="picker-panel">
     <div id="pickerIntake" class="picker-intake" hidden>
       <span id="intakeTitle"></span>
-      <button id="intakeTemplate" class="ghost" type="button" hidden>Use its size</button>
+      <button id="intakeTemplate" class="ghost" type="button" hidden><span class="icon" data-icon="maximize"></span>Use its size</button>
       <button id="intakeSkip" class="ghost" type="button">Keep the current size</button>
     </div>
     <div class="picker-head">
+      <span class="icon picker-mark" data-icon="search"></span>
       <h2>What size do you need?</h2>
       <p>Name a platform, describe a shape, or type exact pixels — it understands all three.</p>
     </div>
