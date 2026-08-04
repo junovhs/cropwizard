@@ -97,10 +97,19 @@
 
       <section class="block">
         <h2>File names</h2>
-        <input id="template" class="text-input" type="text" spellcheck="false"
-          aria-describedby="namePreview" value="{name}-{w}x{h}">
-        <p id="namePreview" class="preview">—</p>
-        <p class="note">Tokens: <code>{name}</code> <code>{n}</code> <code>{w}</code> <code>{h}</code> <code>{label}</code> <code>{date}</code></p>
+        <div id="naming" class="naming">
+          <label><input id="nameKeep" type="checkbox" checked> Keep the original name</label>
+          <label><input id="nameSize" type="checkbox" checked> Add the size</label>
+          <label><input id="nameNumber" type="checkbox"> Number them</label>
+        </div>
+        <p id="namePreview" class="preview" aria-live="polite">—</p>
+        <p id="namingOverride" class="note" hidden>The template below is in charge. Tick an option to go back to it.</p>
+        <details class="advanced">
+          <summary>Name them my way</summary>
+          <input id="template" class="text-input" type="text" spellcheck="false"
+            aria-label="Filename template" aria-describedby="namePreview" value="{name}-{w}x{h}">
+          <p class="note">Tokens: <code>{name}</code> <code>{n}</code> <code>{w}</code> <code>{h}</code> <code>{label}</code> <code>{date}</code></p>
+        </details>
       </section>
 
       <section class="block">

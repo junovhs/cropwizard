@@ -266,6 +266,39 @@ createSizePicker({
 const options = { format: 'png', quality: 0.86, template: DEFAULT_TEMPLATE };
 let exporting = false;
 
+// ---- file names ------------------------------------------------------------
+
+// The template engine stays; nobody has to look at it. The three questions
+// people actually have about a filename — is my name still in it, does it say
+// the size, are they numbered — are asked as questions, and the answers are
+// compiled into a template behind the panel.
+const naming = { keep: true, size: true, number: false };
+// Set once the template is edited by hand: from then on the typed template
+// wins, until a checkbox is ticked and takes the wheel back.
+let customTemplate = null;
+
+function composeTemplate() {
+  const parts = [];
+  if (naming.keep) parts.push('{name}');
+  if (naming.size) parts.push('{w}x{h}');
+  if (naming.number) parts.push('{n}');
+  // Nothing chosen still has to produce distinct files, so fall back to the
+  // number — and the live preview says so rather than hiding it.
+  return parts.join('-') || '{n}';
+}
+
+function syncNaming() {
+  options.template = customTemplate ?? composeTemplate();
+  // Mirror the compiled template into the advanced box — but never rewrite it
+  // underneath someone who is typing in it.
+  if (!customTemplate && document.activeElement !== $('#template')) {
+    $('#template').value = options.template;
+  }
+  $('#naming').classList.toggle('is-overridden', !!customTemplate);
+  $('#namingOverride').hidden = !customTemplate;
+  refreshExport();
+}
+
 function refreshExport() {
   const { items, target } = store.get();
   const count = items.length;
@@ -275,14 +308,14 @@ function refreshExport() {
     ? 'Exporting…'
     : count > 1 ? `Export ${count} images` : 'Export';
 
-  // The preview is the contract: whatever it says is what lands on disk.
+  // The preview is the contract: whatever it says is what lands on disk. With
+  // nothing loaded it still has to demonstrate the naming, so it stands in a
+  // plausible name rather than going blank.
   const sample = items[Math.max(0, store.get().activeIndex)] || items[0];
-  $('#namePreview').textContent = sample
-    ? expandName(options.template, {
-        name: sample.name, index: 0, total: count,
-        w: target.w, h: target.h, ext: FORMATS[options.format].ext, label: target.label,
-      })
-    : '—';
+  $('#namePreview').textContent = expandName(options.template, {
+    name: sample ? sample.name : 'photo', index: 0, total: Math.max(count, 1),
+    w: target.w, h: target.h, ext: FORMATS[options.format].ext, label: target.label,
+  });
 
   const pending = items.filter((i) => !i.approved).length;
   $('#exportNote').textContent = !count
@@ -308,9 +341,17 @@ $('#qualityInput').addEventListener('input', (e) => {
   options.quality = +e.target.value / 100;
   $('#qualityValue').textContent = e.target.value;
 });
+for (const [id, key] of [['#nameKeep', 'keep'], ['#nameSize', 'size'], ['#nameNumber', 'number']]) {
+  $(id).addEventListener('change', (e) => {
+    naming[key] = e.target.checked;
+    customTemplate = null;      // the plain-language controls take the wheel back
+    syncNaming();
+  });
+}
 $('#template').addEventListener('input', (e) => {
-  options.template = e.target.value || DEFAULT_TEMPLATE;
-  refreshExport();
+  customTemplate = e.target.value || null;
+  options.template = customTemplate || DEFAULT_TEMPLATE;
+  syncNaming();
 });
 
 $('#export').addEventListener('click', async () => {
@@ -411,6 +452,7 @@ $('#fitToggle').addEventListener('click', toggleFit);
 // ---- boot ------------------------------------------------------------------
 
 setChromeVisible(false);
+syncNaming();
 const boot = store.get().target;
 applyTarget({ w: boot.w, h: boot.h, name: boot.label });
 view.resize();
