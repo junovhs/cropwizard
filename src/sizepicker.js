@@ -41,7 +41,9 @@ function rowAction(label, glyph, onRun) {
   return el;
 }
 
-export function createSizePicker({ root, input, list, trigger, intake, intakeTitle, intakeSkip, onPick }) {
+export function createSizePicker({
+  root, input, list, trigger, intake, intakeTitle, intakeSkip, intakeTemplate, onPick,
+}) {
   let rows = [];
   let cursor = 0;
   let recents = loadRecents();
@@ -182,29 +184,35 @@ export function createSizePicker({ root, input, list, trigger, intake, intakeTit
     }
     // Asking on intake is the same palette answering a question someone else
     // posed, so the answer goes back to the asker rather than to onPick.
-    const answer = settle(r);
+    const answered = settle({ kind: 'pick', row: r });
     close();
-    if (!answer) onPick(r);
+    if (!answered) onPick(r);
   }
 
   // Hand the pending intake question its answer, exactly once.
-  function settle(row) {
+  function settle(answer) {
     if (!asking) return false;
     const resolve = asking;
     asking = null;
     intake.hidden = true;
-    resolve(row || null);
+    resolve(answer);
     return true;
   }
 
   /**
    * Ask for a size before something happens, with the palette as the question.
-   * @returns {Promise<object|null>} the chosen row, or null if it was skipped
+   * `templateSize`, when given, offers the arriving image's own dimensions as
+   * the answer.
+   * @returns {Promise<{kind: 'pick'|'skip'|'template', row?: object}>}
    */
-  function askFor(prompt) {
+  function askFor(prompt, templateSize = null) {
     return new Promise((resolve) => {
       asking = resolve;
       intakeTitle.textContent = prompt;
+      intakeTemplate.hidden = !templateSize;
+      if (templateSize) {
+        intakeTemplate.textContent = `Use its size — ${templateSize.w} × ${templateSize.h}`;
+      }
       intake.hidden = false;
       input.value = '';
       open();
@@ -225,7 +233,7 @@ export function createSizePicker({ root, input, list, trigger, intake, intakeTit
 
   function close() {
     naming = null;
-    settle(null);           // dismissing is an answer: keep the current size
+    settle({ kind: 'skip' });   // dismissing is an answer: keep the current size
     root.classList.remove('open');
     root.hidden = true;
     trigger.focus();
@@ -276,6 +284,7 @@ export function createSizePicker({ root, input, list, trigger, intake, intakeTit
   });
 
   intakeSkip.addEventListener('click', close);
+  intakeTemplate.addEventListener('click', () => { settle({ kind: 'template' }); close(); });
 
   return { open, close, askFor, isOpen: () => !root.hidden };
 }

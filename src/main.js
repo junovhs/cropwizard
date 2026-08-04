@@ -118,15 +118,47 @@ async function intake(fileList) {
   if (!files.length) { announce('No images in that drop'); return; }
 
   if (!sizeChosen) {
-    const many = files.length > 1;
-    const picked = await picker.askFor(
-      many ? `${files.length} images — what size do you need?` : `${files[0].name} — what size do you need?`,
+    // The template offer needs the image's real dimensions, so the first file
+    // is decoded before the question rather than after the answer.
+    const probe = await decode(files[0]).catch(() => null);
+    const dims = probe ? { w: probe.naturalWidth, h: probe.naturalHeight } : null;
+    const answer = await picker.askFor(
+      files.length > 1
+        ? `${files.length} images — what size do you need?`
+        : `${files[0].name} — what size do you need?`,
+      dims,
     );
-    // A skipped question is answered by the size already on the panel.
-    if (picked) applyTarget({ w: picked.w, h: picked.h, name: picked.name });
     sizeChosen = true;
+
+    // Some images are not the work, they are the brief: the right size in the
+    // wrong picture. Taking the measurement and dropping the picture is the
+    // whole point, so nothing is loaded and the stage says what it is holding.
+    if (answer.kind === 'template' && dims) {
+      applyTarget({ w: dims.w, h: dims.h, name: 'Your template' });
+      armFor(dims);
+      return;
+    }
+    // A skipped question is answered by the size already on the panel.
+    if (answer.kind === 'pick') applyTarget({ w: answer.row.w, h: answer.row.h, name: answer.row.name });
   }
   return addFiles(files);
+}
+
+// Waiting, with a size in hand and nothing to put in it.
+function armFor({ w, h }) {
+  store.set({ items: [], activeIndex: -1 });
+  view.setImage(null, null);
+  setChromeVisible(false);
+  syncUI();
+  $('#filename').textContent = '';
+  $('#emptyTitle').textContent = `Ready at ${w} × ${h}`;
+  $('#emptyText').textContent = 'That size is set. Drop the image you want cut to it.';
+  announce(`Size taken from that image: ${w} by ${h} pixels. Drop the image to crop`);
+}
+
+function disarm() {
+  $('#emptyTitle').textContent = 'Drop an image';
+  $('#emptyText').textContent = 'Pick a size, frame it, take it away. Got a stack? Turn on batch below.';
 }
 
 async function addFiles(fileList) {
@@ -201,6 +233,7 @@ function activate(index) {
   if (!item) return;
   reframe(item, s.target);
   store.set({ activeIndex: index });
+  disarm();
   $('#filename').textContent = item.file.name;
   setChromeVisible(true);
   view.setImage(item.image, item.frame);
@@ -311,6 +344,7 @@ const picker = createSizePicker({
   intake: $('#pickerIntake'),
   intakeTitle: $('#intakeTitle'),
   intakeSkip: $('#intakeSkip'),
+  intakeTemplate: $('#intakeTemplate'),
   onPick: (r) => { sizeChosen = true; applyTarget({ w: r.w, h: r.h, name: r.name }); },
 });
 
