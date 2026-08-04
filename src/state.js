@@ -38,6 +38,9 @@ export const store = createStore({
   target: { w: 1080, h: 1080, label: 'Square post' },
   items: [],
   activeIndex: -1,
+  // DEC-02: one image is the default. The queue, the filmstrip and the approval
+  // flow only exist once someone has asked for them.
+  batch: false,
 });
 
 export const activeItem = (s = store.get()) => s.items[s.activeIndex] || null;

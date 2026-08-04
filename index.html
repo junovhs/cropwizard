@@ -26,9 +26,9 @@
 
       <div id="empty" class="empty">
         <div class="empty-inner">
-          <h1>Drop your images</h1>
-          <p>All of them. Pick a size once, then press <kbd>↵</kbd> through the stack.</p>
-          <button id="emptyAdd" class="primary" type="button">Choose images</button>
+          <h1>Drop an image</h1>
+          <p>Pick a size, frame it, take it away. Got a stack? Turn on batch below.</p>
+          <button id="emptyAdd" class="primary" type="button">Choose an image</button>
         </div>
       </div>
 
@@ -55,12 +55,14 @@
       <div class="drop-veil">Drop to add</div>
     </section>
 
-    <footer id="strip" class="strip" hidden aria-label="Image queue">
+    <footer id="strip" class="strip is-off" aria-label="Image queue">
       <div class="strip-head">
         <div class="progress" role="progressbar" aria-labelledby="progressText">
           <div id="progressBar"></div>
         </div>
         <span id="progressText" class="strip-count">0 / 0 framed</span>
+        <span id="batchNote" class="strip-count">One image at a time</span>
+        <button id="enableBatch" class="ghost" type="button">Enable batch</button>
         <button id="approveAll" class="ghost" type="button">Frame the rest</button>
       </div>
       <div id="stripRail" class="strip-rail"></div>

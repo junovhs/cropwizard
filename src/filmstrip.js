@@ -6,7 +6,9 @@
 
 const THUMB_H = 56;
 
-export function createFilmstrip({ root, rail, bar, text, approveAll, onActivate, onApproveAll }) {
+export function createFilmstrip({
+  root, rail, bar, text, note, approveAll, enableBatch, onActivate, onApproveAll, onEnableBatch,
+}) {
   const cells = new Map();  // item id -> {el, canvas, key}
 
   function drawThumb(canvas, item, target) {
@@ -43,7 +45,24 @@ export function createFilmstrip({ root, rail, bar, text, approveAll, onActivate,
   }
 
   function sync(state) {
-    const { items, activeIndex, target } = state;
+    const { items, activeIndex, target, batch } = state;
+
+    // Off, the bar is not a queue: it is the sign that says a queue exists.
+    // It stays visible and inert rather than disappearing, because a control
+    // nobody can see is a control nobody knows about (DEC-02).
+    root.classList.toggle('is-off', !batch);
+    note.hidden = batch;
+    enableBatch.hidden = batch;
+    text.hidden = !batch;
+    approveAll.hidden = !batch;
+    if (!batch) {
+      for (const [, cell] of cells) cell.el.remove();
+      cells.clear();
+      bar.style.width = '0%';
+      root.classList.remove('is-complete');
+      root.hidden = false;
+      return;
+    }
 
     // Drop cells for items that are gone.
     for (const [id, cell] of cells) {
@@ -97,7 +116,16 @@ export function createFilmstrip({ root, rail, bar, text, approveAll, onActivate,
     cell.el.classList.add('just-approved');
   }
 
-  approveAll.addEventListener('click', onApproveAll);
+  // A replace happened while the queue was switched off: say so on the bar that
+  // could have caught it, so the offer is made at the moment it is relevant.
+  function flashOffer() {
+    root.classList.remove('just-offered');
+    void root.offsetWidth;    // restart the animation
+    root.classList.add('just-offered');
+  }
 
-  return { sync, scrollToActive, celebrate };
+  approveAll.addEventListener('click', onApproveAll);
+  enableBatch.addEventListener('click', onEnableBatch);
+
+  return { sync, scrollToActive, celebrate, flashOffer };
 }

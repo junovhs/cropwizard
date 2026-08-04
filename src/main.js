@@ -122,11 +122,35 @@ async function addFiles(fileList) {
   if (!items.length) { announce('None of those images could be opened'); return; }
 
   const s = store.get();
-  const firstNew = s.items.length;
   for (const item of items) preframe(item, s.target);
+
+  // Single mode is a replacement, not an append: the new image takes the stage
+  // and every setting stays exactly where it was (DEC-02).
+  if (!s.batch) {
+    const replaced = s.items.length > 0;
+    const kept = items[0];
+    store.set({ items: [kept], activeIndex: -1 });
+    activate(0);
+    if (replaced || items.length > 1) strip.flashOffer();
+    announce(items.length > 1
+      ? `Showing ${kept.file.name}. Turn on batch to keep all ${items.length}`
+      : replaced ? `Replaced with ${kept.file.name}` : `${kept.file.name} loaded`);
+    return;
+  }
+
+  const firstNew = s.items.length;
   store.set({ items: [...s.items, ...items] });
   activate(s.activeIndex < 0 ? firstNew : s.activeIndex);
   announce(`${items.length} image${items.length === 1 ? '' : 's'} added`);
+}
+
+// Batch is entered deliberately and never left by accident, so there is an on
+// and no off: the way back to one image is to drop one.
+function enableBatch() {
+  if (store.get().batch) return;
+  store.set({ batch: true });
+  syncUI();
+  announce('Batch on. Drop as many images as you like');
 }
 
 const targetKey = (t) => `${t.w}x${t.h}`;
@@ -180,9 +204,12 @@ const strip = createFilmstrip({
   rail: $('#stripRail'),
   bar: $('#progressBar'),
   text: $('#progressText'),
+  note: $('#batchNote'),
   approveAll: $('#approveAll'),
+  enableBatch: $('#enableBatch'),
   onActivate: activate,
   onApproveAll: approveRest,
+  onEnableBatch: enableBatch,
 });
 
 function approve() {

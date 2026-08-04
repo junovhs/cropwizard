@@ -51,6 +51,8 @@ button {
 button:hover:not(:disabled) { background: #242c3a; border-color: #33404f; }
 button:active:not(:disabled) { transform: scale(.97); }
 button:disabled { opacity: .4; cursor: not-allowed; }
+/* `display` on the element rule outranks the UA rule for [hidden], so restate it. */
+button[hidden] { display: none; }
 
 button.primary {
   border-color: transparent;
@@ -205,6 +207,20 @@ body.dragging .drop-veil { opacity: 1; }
   background: var(--chrome);
 }
 .strip[hidden] { display: none; }
+
+/* Batch off: the bar is present but plainly inert — an offer, not a queue. */
+.strip.is-off { background: #0f131a; }
+.strip.is-off .progress { visibility: hidden; }
+.strip.is-off .strip-rail { display: none; }
+.strip.is-off #enableBatch { color: var(--accent); }
+
+@keyframes strip-offer {
+  0%   { background: #0f131a; }
+  22%  { background: rgba(90, 157, 255, .16); }
+  100% { background: #0f131a; }
+}
+.strip.is-off.just-offered { animation: strip-offer .7s var(--ease); }
+.strip.is-off.just-offered #enableBatch { border-color: var(--accent); }
 
 .strip-head { display: flex; align-items: center; gap: 12px; }
 .progress {
