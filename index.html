@@ -3,363 +3,63 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Quick Crop — Make any photo fit</title>
-<style>
-:root{
-  color-scheme:light;
-  --page:#f5f6f8;--panel:#ffffff;--panel-soft:#f7f8fb;--ink:#182230;--muted:#667085;
-  --line:#d9dee7;--line-strong:#aeb7c5;--blue:#246bfd;--blue-dark:#1656d9;--blue-soft:#eaf1ff;
-  --good:#087443;--good-soft:#e9f8f0;--warn:#9a5b00;--warn-soft:#fff4dc;--bad:#b42318;--bad-soft:#fff0ee;
-  --shadow:0 10px 30px rgba(16,24,40,.10);--radius:16px;--header:64px;--side:340px;
-}
-*{box-sizing:border-box}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--page);color:var(--ink);font:15px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-button,input,select{font:inherit;color:inherit}
-button,select,input[type=number]{min-height:44px;border:1px solid var(--line);border-radius:11px;background:#fff}
-button{padding:0 14px;font-weight:700;cursor:pointer}
-button:hover:not(:disabled){border-color:var(--line-strong);background:#f9fafb}
-button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible,canvas:focus-visible{outline:3px solid rgba(36,107,253,.35);outline-offset:2px}
-button:disabled,fieldset:disabled button,fieldset:disabled input,fieldset:disabled select{opacity:.48;cursor:not-allowed}
-button.primary{border-color:var(--blue);background:var(--blue);color:#fff;box-shadow:0 4px 12px rgba(36,107,253,.22)}
-button.primary:hover:not(:disabled){border-color:var(--blue-dark);background:var(--blue-dark)}
-button.soft{border-color:#c9d8ff;background:var(--blue-soft);color:#174ea6}
-button.quiet{border-color:transparent;background:transparent;box-shadow:none;color:#475467}
-button.quiet:hover:not(:disabled){background:#eef1f5}
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.app{display:grid;grid-template-rows:var(--header) minmax(0,1fr);height:100%}
-.topbar{z-index:5;display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.95);backdrop-filter:blur(14px)}
-.brand{display:flex;align-items:center;gap:11px;min-width:0}.brand-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:var(--blue);color:#fff;font-weight:900;font-size:20px}.brand-copy{min-width:0}.brand-copy strong{display:block;font-size:16px;line-height:1.1}.brand-copy span{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
-.spacer{flex:1}.top-actions{display:flex;gap:8px;align-items:center}.top-actions button{white-space:nowrap}.mobile-only{display:none}
-.workspace{display:grid;grid-template-columns:minmax(0,1fr) var(--side);min-height:0}
-.stage{position:relative;min-width:0;min-height:0;overflow:hidden;background:linear-gradient(145deg,#1d2430,#0f141c)}
-canvas{display:block;width:100%;height:100%;touch-action:none;cursor:default}
-.empty{position:absolute;inset:0;display:grid;place-items:center;padding:28px;text-align:center}
-.empty-card{width:min(480px,100%);padding:38px 30px;border-radius:24px;background:rgba(255,255,255,.97);box-shadow:var(--shadow)}
-.empty-icon{width:64px;height:64px;margin:0 auto 16px;display:grid;place-items:center;border-radius:20px;background:var(--blue-soft);color:var(--blue);font-size:30px;font-weight:800}
-.empty h1{margin:0 0 8px;font-size:26px;letter-spacing:-.02em}.empty p{margin:0 auto 22px;max-width:350px;color:var(--muted)}
-.empty-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}.empty .hint{display:block;margin-top:16px;font-size:12px;color:#7a8492}
-.stage-tip{position:absolute;top:14px;left:50%;transform:translateX(-50%);max-width:calc(100% - 28px);padding:9px 13px;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 4px 15px rgba(0,0,0,.18);color:#344054;font-size:13px;text-align:center;pointer-events:none;transition:opacity .2s}
-.stage-tip[hidden]{display:none}.stage-tip.faded{opacity:0}
-.stage-info{position:absolute;left:14px;bottom:14px;display:flex;gap:7px;flex-wrap:wrap;pointer-events:none}
-.badge{padding:6px 9px;border:1px solid rgba(255,255,255,.24);border-radius:999px;background:rgba(17,24,39,.76);color:#fff;font-size:12px;backdrop-filter:blur(10px)}
-.drop-hint{position:absolute;inset:12px;display:grid;place-items:center;border:3px dashed #8fb1ff;border-radius:22px;background:rgba(15,20,28,.82);color:#fff;font-size:20px;font-weight:800;opacity:0;pointer-events:none;transition:opacity .15s}
-body.dragging .drop-hint{opacity:1}
-.inspector{min-width:0;overflow:auto;border-left:1px solid var(--line);background:var(--panel);padding:18px 18px max(18px,env(safe-area-inset-bottom))}
-.inspector fieldset{min-width:0;margin:0;padding:0;border:0}.section{padding:0 0 20px}.section+.section{padding-top:20px;border-top:1px solid var(--line)}
-.step-title{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px}.step-number{flex:0 0 auto;width:27px;height:27px;display:grid;place-items:center;border-radius:50%;background:var(--blue-soft);color:#174ea6;font-weight:850;font-size:13px}.step-copy h2{margin:1px 0 2px;font-size:17px;line-height:1.2}.step-copy p{margin:0;color:var(--muted);font-size:12px}
-.field{display:grid;gap:7px;margin-bottom:12px}.field>label,.field-label{font-size:13px;font-weight:700;color:#344054}
-select,input[type=number]{width:100%;padding:0 11px}
-.quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px}.quick-card{min-height:64px;padding:9px 10px;text-align:left;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;line-height:1.18}.quick-card strong{font-size:13px}.quick-card span{margin-top:4px;color:var(--muted);font-size:11px;font-weight:500}.quick-card.active{border-color:var(--blue);background:var(--blue-soft);color:#174ea6}.quick-card.active span{color:#3262ad}
-.shape-row{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:10px}.shape{min-height:52px;padding:6px 5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px}.shape-icon{display:block;border:2px solid currentColor;border-radius:3px;opacity:.72}.shape[data-ratio="0"] .shape-icon{width:22px;height:17px;border-style:dashed}.shape[data-ratio="1"] .shape-icon{width:18px;height:18px}.shape[data-ratio="1.7777777778"] .shape-icon{width:25px;height:14px}.shape[data-ratio="0.5625"] .shape-icon{width:12px;height:22px}.shape.active{border-color:var(--blue);background:var(--blue-soft);color:#174ea6}
-.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:0 2px}.toggle label{font-weight:650;color:#344054}.toggle small{display:block;font-weight:400;color:var(--muted)}.toggle input{width:22px;height:22px;accent-color:var(--blue)}
-.custom-ratio[hidden],.empty[hidden],.stage-info[hidden]{display:none}
-.simple-details{margin-top:9px;border:1px solid var(--line);border-radius:12px;background:var(--panel-soft)}
-.simple-details summary{cursor:pointer;padding:12px 13px;font-weight:750;color:#344054}.simple-details>div{padding:0 12px 12px}
-.dimensions{display:grid;grid-template-columns:1fr 18px 1fr auto;gap:7px;align-items:end}.dimensions .times{align-self:center;text-align:center;color:var(--muted)}.dimensions button{padding:0 11px}
-.geometry{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.geometry .field{margin:0}.geometry-actions{display:flex;justify-content:flex-end;margin-top:9px}
-.save-card{padding:14px;border:1px solid #cbd9ff;border-radius:14px;background:linear-gradient(180deg,#f5f8ff,#eef4ff)}
-.save-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.save-summary strong{font-size:14px}.save-summary span{font-size:12px;color:var(--muted)}
-.quality{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 12px;padding:9px 10px;border-radius:10px;font-size:12px}.quality.good{background:var(--good-soft);color:var(--good)}.quality.warn{background:var(--warn-soft);color:var(--warn)}.quality.bad{background:var(--bad-soft);color:var(--bad)}.quality strong{font-size:12px}
-.export-button{width:100%;min-height:48px;font-size:16px}.help{margin:10px 0 0;color:var(--muted);font-size:12px;text-align:center}
-kbd{padding:1px 5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;background:#fff;font:11px ui-monospace,SFMono-Regular,Menlo,monospace}
-@media(max-width:820px){
-  :root{--header:58px}.workspace{grid-template-columns:1fr;grid-template-rows:minmax(220px,1fr) auto}.inspector{max-height:51svh;border-left:0;border-top:1px solid var(--line);padding:14px 14px max(14px,env(safe-area-inset-bottom))}.brand-copy span{display:none}.topbar{padding:8px 10px}.brand-mark{width:36px;height:36px}.desktop-only{display:none}.mobile-only{display:inline-flex}.stage-info{bottom:8px;left:8px}.stage-tip{top:9px}.empty-card{padding:28px 20px}
-}
-@media(max-width:460px){.top-actions{gap:4px}.top-actions button{padding:0 10px}.quick-grid{grid-template-columns:1fr 1fr}.dimensions{grid-template-columns:1fr 16px 1fr}.dimensions button{grid-column:1/-1}.empty h1{font-size:23px}.empty p{font-size:14px}.shape-row{gap:5px}.shape{font-size:10px}}
-@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
-</style>
+<title>cropcut — frame it once, ship it everywhere</title>
+<link rel="stylesheet" href="src/styles.css">
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark" aria-hidden="true">Q</div>
-      <div class="brand-copy"><strong>Quick Crop</strong><span id="fileName">Make any photo fit</span></div>
-    </div>
+    <div class="brand"><b>crop</b><i>cut</i></div>
+    <div id="filename" class="filename"></div>
     <div class="spacer"></div>
     <div class="top-actions">
-      <button id="reset" class="quiet" type="button" disabled>Start over</button>
-      <button id="open" class="soft" type="button">Add photo</button>
-      <button id="topDownload" class="primary desktop-only" type="button" disabled>Download</button>
+      <button id="add" type="button">Add images</button>
     </div>
   </header>
 
   <main class="workspace">
-    <section id="stage" class="stage" aria-label="Photo cropping area">
-      <canvas id="canvas" tabindex="0" aria-label="Photo crop. Drag inside the box to move it. Drag an edge or corner to resize it. Arrow keys also move the box."></canvas>
-      <input id="file" type="file" accept="image/*" hidden>
+    <section id="stage" class="stage" aria-label="Framing area">
+      <canvas id="canvas" tabindex="0"
+        aria-label="Viewfinder. The crop frame is fixed at the centre. Drag to move the image beneath it, scroll to zoom."></canvas>
+      <input id="file" type="file" accept="image/*" multiple hidden>
 
       <div id="empty" class="empty">
-        <div class="empty-card">
-          <div class="empty-icon" aria-hidden="true">+</div>
-          <h1>Let’s make your photo fit</h1>
-          <p>Add a picture, choose where you’ll use it, and download. That’s it.</p>
-          <div class="empty-actions">
-            <button id="emptyOpen" class="primary" type="button">Choose a photo</button>
-          </div>
-          <span class="hint">You can also drop a photo here or paste one.</span>
+        <div class="empty-inner">
+          <h1>Drop your images</h1>
+          <p>Frame them once. Ship them at any size.</p>
+          <button id="emptyAdd" class="primary" type="button">Choose images</button>
         </div>
       </div>
 
-      <div id="stageTip" class="stage-tip" hidden>Drag inside the box to move it. Drag a corner to resize it.</div>
-      <div id="stageInfo" class="stage-info" hidden aria-hidden="true">
-        <span id="cropInfo" class="badge">Selected area —</span>
+      <div id="readout" class="readout" hidden>
+        <span class="chip">Cutting <strong id="cropSize">—</strong></span>
+        <span id="qualityChip" class="chip good">Quality <strong id="quality">—</strong></span>
       </div>
-      <div class="drop-hint">Drop your photo here</div>
+
+      <div id="hints" class="hints" hidden>
+        <span><kbd>drag</kbd> move</span>
+        <span><kbd>scroll</kbd> zoom</span>
+        <span><kbd>0</kbd> fill</span>
+      </div>
+
+      <div class="drop-veil">Drop to add</div>
     </section>
 
-    <aside class="inspector" aria-label="Photo options">
-      <fieldset id="controls" disabled>
-        <legend class="sr-only">Photo options</legend>
-
-        <section class="section" aria-labelledby="useHeading">
-          <div class="step-title">
-            <span class="step-number">1</span>
-            <div class="step-copy"><h2 id="useHeading">Where will you use it?</h2><p>Pick a popular size or choose from the full list.</p></div>
-          </div>
-
-          <div class="quick-grid" aria-label="Popular sizes">
-            <button class="quick-card" type="button" data-preset="1080x1080"><strong>Square post</strong><span>Instagram or Facebook</span></button>
-            <button class="quick-card" type="button" data-preset="1080x1350"><strong>Tall post</strong><span>More space in the feed</span></button>
-            <button class="quick-card" type="button" data-preset="1080x1920"><strong>Story or Reel</strong><span>Full-screen phone</span></button>
-            <button class="quick-card" type="button" data-preset="1280x720"><strong>Video thumbnail</strong><span>YouTube and video</span></button>
-          </div>
-
-          <div class="field">
-            <label for="preset">More sizes</label>
-            <select id="preset">
-              <option value="">Choose a size…</option>
-              <optgroup label="Instagram">
-                <option value="1080x1080">Square post</option>
-                <option value="1080x1350">Tall feed post</option>
-                <option value="1080x566">Wide feed post</option>
-                <option value="1080x1920">Story or Reel</option>
-              </optgroup>
-              <optgroup label="Facebook">
-                <option value="1200x630">Shared link image</option>
-                <option value="820x312">Page cover photo</option>
-              </optgroup>
-              <optgroup label="X / Twitter">
-                <option value="1600x900">Post image</option>
-                <option value="1500x500">Profile header</option>
-              </optgroup>
-              <optgroup label="YouTube">
-                <option value="1280x720">Video thumbnail</option>
-                <option value="1920x1080">Full HD video frame</option>
-              </optgroup>
-              <optgroup label="Printing">
-                <option value="2480x3508">A4 page</option>
-                <option value="2550x3300">US Letter page</option>
-                <option value="1748x2480">A5 page</option>
-              </optgroup>
-            </select>
-          </div>
-
-          <details class="simple-details">
-            <summary>Use my own size</summary>
-            <div>
-              <div class="field">
-                <span class="field-label">Size in pixels</span>
-                <div class="dimensions">
-                  <label><span class="sr-only">Width</span><input id="targetW" type="number" min="1" max="16384" inputmode="numeric" placeholder="Width" aria-label="Custom width"></label>
-                  <span class="times" aria-hidden="true">×</span>
-                  <label><span class="sr-only">Height</span><input id="targetH" type="number" min="1" max="16384" inputmode="numeric" placeholder="Height" aria-label="Custom height"></label>
-                  <button id="applyTarget" type="button">Use size</button>
-                </div>
-              </div>
-            </div>
-          </details>
-        </section>
-
-        <section class="section" aria-labelledby="adjustHeading">
-          <div class="step-title">
-            <span class="step-number">2</span>
-            <div class="step-copy"><h2 id="adjustHeading">Adjust your photo</h2><p>Move the box over the part you want to keep.</p></div>
-          </div>
-
-          <div class="shape-row" aria-label="Crop shape">
-            <button class="shape active" type="button" data-ratio="0"><span class="shape-icon"></span>Any shape</button>
-            <button class="shape" type="button" data-ratio="1"><span class="shape-icon"></span>Square</button>
-            <button class="shape" type="button" data-ratio="1.7777777778"><span class="shape-icon"></span>Wide</button>
-            <button class="shape" type="button" data-ratio="0.5625"><span class="shape-icon"></span>Tall</button>
-          </div>
-
-          <div class="toggle">
-            <label for="grid">Show helpful guide<small>Makes it easier to line things up</small></label>
-            <input id="grid" type="checkbox" checked>
-          </div>
-
-          <details class="simple-details">
-            <summary>More crop shapes</summary>
-            <div>
-              <div class="field">
-                <label for="ratio">Choose a shape</label>
-                <select id="ratio">
-                  <option value="0">Any shape</option>
-                  <option value="1">Square</option>
-                  <option value="1.3333333333">Classic photo 4:3</option>
-                  <option value="1.5">Camera photo 3:2</option>
-                  <option value="1.25">Portrait photo 5:4</option>
-                  <option value="1.7777777778">Widescreen 16:9</option>
-                  <option value="0.5625">Phone screen 9:16</option>
-                  <option value="2.3333333333">Extra wide 21:9</option>
-                  <option value="custom">Make my own…</option>
-                </select>
-              </div>
-              <div id="customRatio" class="custom-ratio" hidden>
-                <div class="dimensions">
-                  <label><span class="sr-only">Shape width</span><input id="ratioW" type="number" min="1" inputmode="numeric" placeholder="Width" aria-label="Shape width"></label>
-                  <span class="times" aria-hidden="true">:</span>
-                  <label><span class="sr-only">Shape height</span><input id="ratioH" type="number" min="1" inputmode="numeric" placeholder="Height" aria-label="Shape height"></label>
-                  <button id="applyRatio" type="button">Use shape</button>
-                </div>
-              </div>
-            </div>
-          </details>
-
-          <details class="simple-details">
-            <summary>Professional controls</summary>
-            <div>
-              <p style="margin:0 0 10px;color:var(--muted);font-size:12px">Enter the exact selected area when precision matters.</p>
-              <div class="geometry">
-                <div class="field"><label for="cropX">Left</label><input id="cropX" type="number" min="0" inputmode="numeric"></div>
-                <div class="field"><label for="cropY">Top</label><input id="cropY" type="number" min="0" inputmode="numeric"></div>
-                <div class="field"><label for="cropW">Width</label><input id="cropW" type="number" min="20" inputmode="numeric"></div>
-                <div class="field"><label for="cropH">Height</label><input id="cropH" type="number" min="20" inputmode="numeric"></div>
-              </div>
-              <div class="geometry-actions"><button id="applyGeometry" type="button">Apply exact values</button></div>
-            </div>
-          </details>
-        </section>
-
-        <section class="section" aria-labelledby="saveHeading">
-          <div class="step-title">
-            <span class="step-number">3</span>
-            <div class="step-copy"><h2 id="saveHeading">Save your image</h2><p>We’ll save it as a crisp PNG file.</p></div>
-          </div>
-
-          <div class="save-card">
-            <div class="save-summary"><strong id="saveSize">Ready to save</strong><span>PNG</span></div>
-            <div id="qualityBox" class="quality good"><span>Picture check</span><strong id="quality">Looks great</strong></div>
-            <button id="export" class="primary export-button" type="button">Download image</button>
-            <p class="help">Your original photo stays unchanged.</p>
-          </div>
-
-          <details class="simple-details">
-            <summary>Change download size</summary>
-            <div>
-              <div class="field">
-                <span class="field-label">Download size in pixels</span>
-                <div class="dimensions">
-                  <label><span class="sr-only">Download width</span><input id="exportW" type="number" min="1" max="16384" inputmode="numeric" aria-label="Download width"></label>
-                  <span class="times" aria-hidden="true">×</span>
-                  <label><span class="sr-only">Download height</span><input id="exportH" type="number" min="1" max="16384" inputmode="numeric" aria-label="Download height"></label>
-                </div>
-              </div>
-            </div>
-          </details>
-        </section>
-      </fieldset>
+    <aside class="panel" aria-label="Options">
+      <section class="block">
+        <h2>Output size</h2>
+        <div class="size-input">
+          <input id="targetW" type="number" min="1" max="16384" inputmode="numeric" aria-label="Output width" value="1080">
+          <span aria-hidden="true">×</span>
+          <input id="targetH" type="number" min="1" max="16384" inputmode="numeric" aria-label="Output height" value="1080">
+        </div>
+        <p class="note">The frame always matches this shape.</p>
+      </section>
     </aside>
   </main>
 </div>
+
 <div id="status" class="sr-only" role="status" aria-live="polite"></div>
-
-<script>
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)], clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), MIN=20;
-const C=$('#canvas'), X=C.getContext('2d'), F=$('#file'), stage=$('#stage');
-let img=null,crop={x:0,y:0,w:0,h:0},view={s:1,x:0,y:0},lock=0,mode='free';
-let drag=null,grid=true,vw=0,vh=0,fileName='crop',geometryLast='cropW',dragDepth=0,tipTimer=null;
-
-function announce(message){$('#status').textContent='';requestAnimationFrame(()=>$('#status').textContent=message)}
-function openPicker(){F.value='';F.click()}
-function setEnabled(enabled){$('#controls').disabled=!enabled;$('#reset').disabled=!enabled;$('#topDownload').disabled=!enabled;$('#empty').hidden=enabled;$('#stageInfo').hidden=!enabled}
-function resizeCanvas(){
-  const r=stage.getBoundingClientRect(),d=Math.max(1,devicePixelRatio||1);vw=Math.max(1,Math.round(r.width));vh=Math.max(1,Math.round(r.height));
-  C.width=Math.round(vw*d);C.height=Math.round(vh*d);X.setTransform(d,0,0,d,0,0);if(img)fit();else draw();
-}
-function fit(){const pad=30;view.s=Math.min(1,(vw-pad*2)/img.naturalWidth,(vh-pad*2)/img.naturalHeight);view.x=(vw-img.naturalWidth*view.s)/2;view.y=(vh-img.naturalHeight*view.s)/2;draw()}
-function screenCrop(){return{x:view.x+crop.x*view.s,y:view.y+crop.y*view.s,w:crop.w*view.s,h:crop.h*view.s}}
-function handles(q){return[{k:'nw',x:q.x,y:q.y},{k:'n',x:q.x+q.w/2,y:q.y},{k:'ne',x:q.x+q.w,y:q.y},{k:'e',x:q.x+q.w,y:q.y+q.h/2},{k:'se',x:q.x+q.w,y:q.y+q.h},{k:'s',x:q.x+q.w/2,y:q.y+q.h},{k:'sw',x:q.x,y:q.y+q.h},{k:'w',x:q.x,y:q.y+q.h/2}]}
-function draw(){
-  X.clearRect(0,0,vw,vh);X.fillStyle='#101720';X.fillRect(0,0,vw,vh);if(!img)return;
-  X.drawImage(img,view.x,view.y,img.naturalWidth*view.s,img.naturalHeight*view.s);
-  const q=screenCrop();X.fillStyle='rgba(8,12,18,.68)';X.fillRect(0,0,vw,q.y);X.fillRect(0,q.y+q.h,vw,vh-q.y-q.h);X.fillRect(0,q.y,q.x,q.h);X.fillRect(q.x+q.w,q.y,vw-q.x-q.w,q.h);
-  X.strokeStyle='#fff';X.lineWidth=3;X.strokeRect(q.x,q.y,q.w,q.h);
-  if(grid){X.strokeStyle='rgba(255,255,255,.55)';X.lineWidth=1;X.beginPath();for(let i=1;i<3;i++){X.moveTo(q.x+q.w*i/3,q.y);X.lineTo(q.x+q.w*i/3,q.y+q.h);X.moveTo(q.x,q.y+q.h*i/3);X.lineTo(q.x+q.w,q.y+q.h*i/3)}X.stroke()}
-  X.fillStyle='#fff';X.strokeStyle='#246bfd';X.lineWidth=3;for(const p of handles(q)){X.beginPath();X.roundRect(p.x-8,p.y-8,16,16,4);X.fill();X.stroke()}
-  updateUI();
-}
-function updateUI(){
-  if(!img)return;const values={cropX:crop.x,cropY:crop.y,cropW:crop.w,cropH:crop.h};
-  for(const [id,value] of Object.entries(values))if(document.activeElement!==$('#'+id))$('#'+id).value=Math.round(value);
-  $('#cropInfo').textContent=`Keeping ${Math.round(crop.w)} × ${Math.round(crop.h)} pixels`;
-  if(mode==='free'||mode==='ratio')setExport(Math.round(crop.w),Math.round(crop.h));updateQuality();
-}
-function setExport(w,h){if(document.activeElement!==$('#exportW'))$('#exportW').value=w;if(document.activeElement!==$('#exportH'))$('#exportH').value=h}
-function updateQuality(){
-  if(!img)return;const w=+$('#exportW').value,h=+$('#exportH').value,box=$('#qualityBox'),el=$('#quality');
-  $('#saveSize').textContent=w>0&&h>0?`${Math.round(w)} × ${Math.round(h)} pixels`:'Choose a download size';
-  box.className='quality';if(!(w>0&&h>0)){el.textContent='Add a size';box.classList.add('bad');return}
-  const ratio=Math.min(crop.w/w,crop.h/h);
-  if(ratio<.75){el.textContent='May look blurry';box.classList.add('bad')}
-  else if(ratio<1){el.textContent='Slightly enlarged';box.classList.add('warn')}
-  else{el.textContent='Looks great';box.classList.add('good')}
-}
-function showTip(){clearTimeout(tipTimer);const tip=$('#stageTip');tip.hidden=false;tip.classList.remove('faded');tipTimer=setTimeout(()=>tip.classList.add('faded'),5000)}
-function hideTip(){const tip=$('#stageTip');tip.classList.add('faded');clearTimeout(tipTimer)}
-function load(file){
-  if(!file||!file.type.startsWith('image/')){announce('Please choose a photo');return}
-  const old=img&&{x:crop.x/img.naturalWidth,y:crop.y/img.naturalHeight,w:crop.w/img.naturalWidth,h:crop.h/img.naturalHeight};
-  const url=URL.createObjectURL(file),next=new Image();next.onload=()=>{
-    URL.revokeObjectURL(url);img=next;fileName=file.name.replace(/\.[^.]+$/,'')||'photo';$('#fileName').textContent=file.name;
-    crop=old?{x:old.x*img.naturalWidth,y:old.y*img.naturalHeight,w:old.w*img.naturalWidth,h:old.h*img.naturalHeight}:{x:0,y:0,w:img.naturalWidth,h:img.naturalHeight};
-    lock=0;mode='free';$('#ratio').value='0';$('#customRatio').hidden=true;$('#preset').value='';clearActivePresets();setActiveRatio(0);setEnabled(true);fit();C.focus();showTip();announce(`${file.name} is ready`);
-  };next.onerror=()=>{URL.revokeObjectURL(url);announce('That photo could not be opened')};next.src=url;
-}
-function clearActivePresets(){$$('.quick-card').forEach(b=>b.classList.remove('active'))}
-function setActivePreset(value){clearActivePresets();const button=$(`.quick-card[data-preset="${value}"]`);if(button)button.classList.add('active')}
-function setActiveRatio(r){$$('.shape').forEach(b=>b.classList.toggle('active',Math.abs(+b.dataset.ratio-r)<1e-6))}
-function ratioOption(r){const option=[...$('#ratio').options].find(o=>o.value!=='custom'&&Math.abs(+o.value-r)<1e-6);return option?option.value:'custom'}
-function showRatio(r){const value=ratioOption(r);$('#ratio').value=value;$('#customRatio').hidden=value!=='custom';setActiveRatio(r);if(value==='custom'&&r){$('#ratioW').value=Math.round(r*1000);$('#ratioH').value=1000}}
-function applyRatio(r,nextMode='ratio'){
-  if(!img)return;lock=r;mode=r?nextMode:'free';showRatio(r);if(!r){draw();announce('You can now crop to any shape');return}
-  const W=img.naturalWidth,H=img.naturalHeight;let w=W,h=w/r;if(h>H){h=H;w=h*r}crop={x:(W-w)/2,y:(H-h)/2,w,h};draw();announce('Crop shape updated');
-}
-function applyTarget(){const w=+$('#targetW').value,h=+$('#targetH').value;if(!(w>0&&h>0)){announce('Please enter a width and height');return}setExport(w,h);clearActivePresets();applyRatio(w/h,'target')}
-function applyPreset(value){if(!value)return;const[w,h]=value.split('x').map(Number);$('#targetW').value=w;$('#targetH').value=h;setExport(w,h);$('#preset').value=value;setActivePreset(value);applyRatio(w/h,'preset')}
-function point(e){const r=C.getBoundingClientRect();return{x:(e.clientX-r.left-view.x)/view.s,y:(e.clientY-r.top-view.y)/view.s}}
-function hit(clientX,clientY){const r=C.getBoundingClientRect(),x=clientX-r.left,y=clientY-r.top,q=screenCrop();let best=null,dist=26;for(const p of handles(q)){const d=Math.hypot(x-p.x,y-p.y);if(d<dist){dist=d;best=p.k}}if(best)return best;return x>=q.x&&x<=q.x+q.w&&y>=q.y&&y<=q.y+q.h?'move':null}
-function cursorFor(k){return({nw:'nwse-resize',se:'nwse-resize',ne:'nesw-resize',sw:'nesw-resize',n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',move:'move'})[k]||'default'}
-function start(e){if(!img){openPicker();return}const k=hit(e.clientX,e.clientY);if(!k)return;hideTip();C.setPointerCapture(e.pointerId);drag={k,p:point(e),crop:{...crop}};C.style.cursor=cursorFor(k);e.preventDefault()}
-function move(e){
-  if(!img)return;if(!drag){C.style.cursor=cursorFor(hit(e.clientX,e.clientY));return}
-  const p=point(e),dx=p.x-drag.p.x,dy=p.y-drag.p.y,s=drag.crop,W=img.naturalWidth,H=img.naturalHeight;if(drag.k==='move'){crop.x=clamp(s.x+dx,0,W-s.w);crop.y=clamp(s.y+dy,0,H-s.h);draw();return}
-  const k=drag.k;if(!lock){let l=s.x,t=s.y,r=s.x+s.w,b=s.y+s.h;if(k.includes('w'))l=clamp(s.x+dx,0,r-MIN);if(k.includes('e'))r=clamp(r+dx,l+MIN,W);if(k.includes('n'))t=clamp(s.y+dy,0,b-MIN);if(k.includes('s'))b=clamp(b+dy,t+MIN,H);crop={x:l,y:t,w:r-l,h:b-t}}
-  else if(k.length===2)resizeCorner(k,p,s,W,H);else resizeEdge(k,p,s,W,H);draw();
-}
-function resizeCorner(k,p,s,W,H){const ax=k.includes('w')?s.x+s.w:s.x,ay=k.includes('n')?s.y+s.h:s.y,sx=k.includes('w')?-1:1,sy=k.includes('n')?-1:1;let rw=Math.max(MIN,Math.abs(p.x-ax)),rh=Math.max(MIN,Math.abs(p.y-ay)),w=rw,h=w/lock;if(h<rh){h=rh;w=h*lock}const m=Math.min((sx>0?W-ax:ax)/w,(sy>0?H-ay:ay)/h);w*=Math.min(1,m);h=w/lock;crop={x:sx>0?ax:ax-w,y:sy>0?ay:ay-h,w,h}}
-function resizeEdge(k,p,s,W,H){const cx=s.x+s.w/2,cy=s.y+s.h/2;if(k==='e'||k==='w'){const a=k==='e'?s.x:s.x+s.w;let w=Math.max(MIN,Math.abs(p.x-a));const max=Math.min(k==='e'?W-a:a,2*lock*Math.min(cy,H-cy));w=Math.min(w,max);const h=w/lock;crop={x:k==='e'?a:a-w,y:cy-h/2,w,h}}else{const a=k==='s'?s.y:s.y+s.h;let h=Math.max(MIN,Math.abs(p.y-a));const max=Math.min(k==='s'?H-a:a,2*Math.min(cx,W-cx)/lock);h=Math.min(h,max);const w=h*lock;crop={x:cx-w/2,y:k==='s'?a:a-h,w,h}}}
-function end(){if(drag){drag=null;C.style.cursor='default';announce('Photo adjusted')}}
-function reset(){if(!img)return;crop={x:0,y:0,w:img.naturalWidth,h:img.naturalHeight};lock=0;mode='free';$('#ratio').value='0';$('#customRatio').hidden=true;$('#preset').value='';clearActivePresets();setActiveRatio(0);fit();showTip();announce('Started over')}
-function applyGeometry(){if(!img)return;let x=+$('#cropX').value,y=+$('#cropY').value,w=+$('#cropW').value,h=+$('#cropH').value;if(![x,y,w,h].every(Number.isFinite)||w<MIN||h<MIN){announce('Please check the exact values');return}if(lock){if(geometryLast==='cropH')w=h*lock;else h=w/lock}const scale=Math.min(1,img.naturalWidth/w,img.naturalHeight/h);w*=scale;h*=scale;x=clamp(x,0,img.naturalWidth-w);y=clamp(y,0,img.naturalHeight-h);crop={x,y,w,h};draw();announce('Exact values applied')}
-function exportPNG(){
-  if(!img){announce('Please add a photo first');return}const w=+$('#exportW').value,h=+$('#exportH').value;if(!(w>0&&h>0)||w>16384||h>16384){announce('Please choose a valid download size');return}
-  const out=document.createElement('canvas');out.width=w;out.height=h;out.getContext('2d').drawImage(img,crop.x,crop.y,crop.w,crop.h,0,0,w,h);
-  out.toBlob(blob=>{if(!blob){announce('The download did not work');return}const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=`${fileName}_${w}x${h}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);announce('Your image was downloaded')},'image/png');
-}
-function moveCropBy(dx,dy){if(!img)return;crop.x=clamp(crop.x+dx,0,img.naturalWidth-crop.w);crop.y=clamp(crop.y+dy,0,img.naturalHeight-crop.h);draw()}
-
-$('#open').onclick=$('#emptyOpen').onclick=openPicker;F.onchange=e=>load(e.target.files[0]);$('#reset').onclick=reset;$('#topDownload').onclick=exportPNG;$('#export').onclick=exportPNG;
-$$('.quick-card').forEach(b=>b.onclick=()=>applyPreset(b.dataset.preset));$('#preset').onchange=e=>applyPreset(e.target.value);$('#applyTarget').onclick=applyTarget;
-$$('.shape').forEach(b=>b.onclick=()=>applyRatio(+b.dataset.ratio));$('#ratio').onchange=e=>{const v=e.target.value;$('#customRatio').hidden=v!=='custom';if(v!=='custom')applyRatio(+v)};
-$('#applyRatio').onclick=()=>{const w=+$('#ratioW').value,h=+$('#ratioH').value;if(w>0&&h>0)applyRatio(w/h);else announce('Please enter both shape numbers')};
-$('#grid').onchange=e=>{grid=e.target.checked;draw();announce(grid?'Guide is on':'Guide is off')};$('#applyGeometry').onclick=applyGeometry;for(const id of ['cropW','cropH'])$('#'+id).addEventListener('input',()=>geometryLast=id);
-$('#exportW').oninput=e=>{const w=+e.target.value;if(lock&&w>0)$('#exportH').value=Math.round(w/lock);updateQuality()};$('#exportH').oninput=e=>{const h=+e.target.value;if(lock&&h>0)$('#exportW').value=Math.round(h*lock);updateQuality()};
-C.onpointerdown=start;C.onpointermove=move;C.onpointerup=C.onpointercancel=end;C.addEventListener('keydown',e=>{if(!img)return;const step=e.shiftKey?10:1;let handled=true;if(e.key==='ArrowLeft')moveCropBy(-step,0);else if(e.key==='ArrowRight')moveCropBy(step,0);else if(e.key==='ArrowUp')moveCropBy(0,-step);else if(e.key==='ArrowDown')moveCropBy(0,step);else handled=false;if(handled)e.preventDefault()});
-addEventListener('resize',resizeCanvas);for(const eventName of ['dragenter','dragleave','dragover','drop'])document.addEventListener(eventName,e=>{if(!e.dataTransfer||![...e.dataTransfer.types].includes('Files'))return;e.preventDefault();if(eventName==='dragenter'){dragDepth++;document.body.classList.add('dragging')}if(eventName==='dragleave'&&!--dragDepth)document.body.classList.remove('dragging');if(eventName==='drop'){dragDepth=0;document.body.classList.remove('dragging');load(e.dataTransfer.files[0])}});
-document.addEventListener('paste',e=>{const file=[...e.clipboardData.files].find(f=>f.type.startsWith('image/'));if(file)load(file)});
-setEnabled(false);resizeCanvas();
-</script>
+<script type="module" src="src/main.js"></script>
 </body>
 </html>
