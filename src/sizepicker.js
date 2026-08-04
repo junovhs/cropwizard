@@ -41,11 +41,13 @@ function rowAction(label, glyph, onRun) {
   return el;
 }
 
-export function createSizePicker({ root, input, list, trigger, onPick }) {
+export function createSizePicker({ root, input, list, trigger, intake, intakeTitle, intakeSkip, onPick }) {
   let rows = [];
   let cursor = 0;
   let recents = loadRecents();
   let saved = loadSaved();
+  // Set while something is waiting on an answer from the palette (intake).
+  let asking = null;
   // While naming, the one text box in the palette is the name box: same focus,
   // same Enter, no second dialog.
   let naming = null;   // {w, h, id?} — saving a new size, or renaming one
@@ -178,8 +180,35 @@ export function createSizePicker({ root, input, list, trigger, onPick }) {
       recents = [r.id, ...recents.filter((x) => x !== r.id)].slice(0, MAX_RECENTS);
       saveRecents(recents);
     }
+    // Asking on intake is the same palette answering a question someone else
+    // posed, so the answer goes back to the asker rather than to onPick.
+    const answer = settle(r);
     close();
-    onPick(r);
+    if (!answer) onPick(r);
+  }
+
+  // Hand the pending intake question its answer, exactly once.
+  function settle(row) {
+    if (!asking) return false;
+    const resolve = asking;
+    asking = null;
+    intake.hidden = true;
+    resolve(row || null);
+    return true;
+  }
+
+  /**
+   * Ask for a size before something happens, with the palette as the question.
+   * @returns {Promise<object|null>} the chosen row, or null if it was skipped
+   */
+  function askFor(prompt) {
+    return new Promise((resolve) => {
+      asking = resolve;
+      intakeTitle.textContent = prompt;
+      intake.hidden = false;
+      input.value = '';
+      open();
+    });
   }
 
   function open() {
@@ -196,6 +225,7 @@ export function createSizePicker({ root, input, list, trigger, onPick }) {
 
   function close() {
     naming = null;
+    settle(null);           // dismissing is an answer: keep the current size
     root.classList.remove('open');
     root.hidden = true;
     trigger.focus();
@@ -245,5 +275,7 @@ export function createSizePicker({ root, input, list, trigger, onPick }) {
     }
   });
 
-  return { open, close, isOpen: () => !root.hidden };
+  intakeSkip.addEventListener('click', close);
+
+  return { open, close, askFor, isOpen: () => !root.hidden };
 }

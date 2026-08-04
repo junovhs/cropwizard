@@ -110,6 +110,25 @@ function decode(file) {
   });
 }
 
+// Every way an image can arrive — drop, paste, file picker — comes through
+// here. The first one is met with the question that has to be answered before
+// framing means anything: what size is this for?
+async function intake(fileList) {
+  const files = [...fileList].filter((f) => f.type.startsWith('image/'));
+  if (!files.length) { announce('No images in that drop'); return; }
+
+  if (!sizeChosen) {
+    const many = files.length > 1;
+    const picked = await picker.askFor(
+      many ? `${files.length} images — what size do you need?` : `${files[0].name} — what size do you need?`,
+    );
+    // A skipped question is answered by the size already on the panel.
+    if (picked) applyTarget({ w: picked.w, h: picked.h, name: picked.name });
+    sizeChosen = true;
+  }
+  return addFiles(files);
+}
+
 async function addFiles(fileList) {
   const files = [...fileList].filter((f) => f.type.startsWith('image/'));
   if (!files.length) { announce('No images in that drop'); return; }
@@ -280,12 +299,19 @@ function applyTarget({ w, h, name }) {
   announce(`${name}, ${w} by ${h} pixels`);
 }
 
-createSizePicker({
+// Until a size has actually been chosen, the panel is only showing a default —
+// so the next image to arrive is asked about rather than framed to a guess.
+let sizeChosen = false;
+
+const picker = createSizePicker({
   root: $('#picker'),
   input: $('#pickerInput'),
   list: $('#pickerList'),
   trigger: $('#sizeButton'),
-  onPick: (r) => applyTarget({ w: r.w, h: r.h, name: r.name }),
+  intake: $('#pickerIntake'),
+  intakeTitle: $('#intakeTitle'),
+  intakeSkip: $('#intakeSkip'),
+  onPick: (r) => { sizeChosen = true; applyTarget({ w: r.w, h: r.h, name: r.name }); },
 });
 
 // ---- export ----------------------------------------------------------------
@@ -415,7 +441,7 @@ $('#export').addEventListener('click', async () => {
 const openPicker = () => { fileInput.value = ''; fileInput.click(); };
 $('#add').onclick = openPicker;
 $('#emptyAdd').onclick = openPicker;
-fileInput.onchange = (e) => addFiles(e.target.files);
+fileInput.onchange = (e) => intake(e.target.files);
 
 let dragDepth = 0;
 for (const name of ['dragenter', 'dragleave', 'dragover', 'drop']) {
@@ -427,14 +453,18 @@ for (const name of ['dragenter', 'dragleave', 'dragover', 'drop']) {
     if (name === 'drop') {
       dragDepth = 0;
       document.body.classList.remove('dragging');
-      addFiles(e.dataTransfer.files);
+      intake(e.dataTransfer.files);
     }
   });
 }
 
+// Ctrl/Cmd+V arrives here as a paste event, wherever the focus happens to be —
+// so a clipboard image takes exactly the same road as a dropped one.
 document.addEventListener('paste', (e) => {
-  const files = [...(e.clipboardData?.files || [])];
-  if (files.length) addFiles(files);
+  const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith('image/'));
+  if (!files.length) return;
+  e.preventDefault();
+  intake(files);
 });
 
 document.addEventListener('keydown', (e) => {

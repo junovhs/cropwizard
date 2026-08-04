@@ -474,6 +474,24 @@ body.dragging .drop-veil { opacity: 1; }
 }
 .picker.open .picker-panel { transform: none; }
 
+/* On intake the palette is standing between an image and the stage, so it says
+   which image it is asking about and offers the way past. */
+.picker-intake {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px 10px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--raised);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.picker-intake[hidden] { display: none; }
+.picker-intake span {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--ink);
+}
+.picker-intake button { min-height: 28px; font-size: 12px; }
+
 /* The palette answers a question, so it asks one — in prose, not in a
    dot-separated string of placeholder tokens. */
 .picker-head { padding: 18px 18px 2px; }
