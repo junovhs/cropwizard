@@ -148,6 +148,18 @@ export function createSizePicker({ root, input, list, trigger, onPick }) {
     action();
   });
 
+  // The examples are the documentation: clicking one types it for you, so the
+  // three ways in are learned by using them rather than by being listed.
+  for (const example of root.querySelectorAll('[data-fill]')) {
+    example.addEventListener('mousedown', (e) => {
+      e.preventDefault();               // keep the focus in the input
+      input.value = example.dataset.fill;
+      cursor = 0;
+      render();
+      input.focus();
+    });
+  }
+
   // Clicking the backdrop dismisses; clicking the panel must not.
   root.addEventListener('mousedown', (e) => { if (e.target === root) close(); });
   trigger.addEventListener('click', open);

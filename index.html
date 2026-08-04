@@ -116,9 +116,20 @@
 
 <div id="picker" class="picker" hidden role="dialog" aria-modal="true" aria-label="Choose an output size">
   <div class="picker-panel">
+    <div class="picker-head">
+      <h2>What size do you need?</h2>
+      <p>Name a platform, describe a shape, or type exact pixels — it understands all three.</p>
+    </div>
     <input id="pickerInput" class="picker-input" type="text" autocomplete="off" spellcheck="false"
       role="combobox" aria-expanded="true" aria-controls="pickerList" aria-autocomplete="list"
-      placeholder="ig story · yt thumb · og image · 1200 x 630 · 16:9">
+      placeholder="Start typing, or try one of these">
+    <div class="picker-examples" aria-label="Examples">
+      <button type="button" class="example" data-fill="instagram story">instagram story</button>
+      <button type="button" class="example" data-fill="16:9">16:9</button>
+      <button type="button" class="example" data-fill="1200 x 630">1200 x 630</button>
+      <button type="button" class="example" data-fill="youtube thumbnail">youtube thumbnail</button>
+      <button type="button" class="example" data-fill="a4 print">a4 print</button>
+    </div>
     <div id="pickerList" class="picker-list" role="listbox" aria-label="Sizes"></div>
     <div class="picker-foot">
       <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
