@@ -2,3 +2,7 @@
 **/.ishoo/*.local.toml
 **/.ishoo/cache/
 **/.ishoo/worktrees/
+
+# semmap artifacts (regenerable, not committed - DEC-10)
+SEMMAP.md
+.semmap/
