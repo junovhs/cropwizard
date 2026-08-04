@@ -35,7 +35,7 @@ export function createItem(file, image) {
 }
 
 export const store = createStore({
-  target: { w: 1080, h: 1080, label: 'Square' },
+  target: { w: 1080, h: 1080, label: 'Square post' },
   items: [],
   activeIndex: -1,
 });

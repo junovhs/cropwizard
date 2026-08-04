@@ -2,6 +2,7 @@
 
 import { store, createItem, activeItem } from './state.js';
 import { createViewfinder } from './viewfinder.js';
+import { createSizePicker } from './sizepicker.js';
 
 const $ = (sel) => document.querySelector(sel);
 const canvas = $('#canvas');
@@ -94,19 +95,30 @@ function activate(index) {
 
 // ---- target size -----------------------------------------------------------
 
-function applyTarget(w, h) {
+function applyTarget({ w, h, name }) {
   if (!(w > 0 && h > 0)) return;
-  store.set({ target: { ...store.get().target, w, h } });
+  store.set({ target: { w, h, label: name } });
   view.setTarget(w, h);
-  const item = activeItem();
-  if (item) updateReadout(view.getFraming());
+
+  $('#sizeName').textContent = name;
+  $('#sizeDims').textContent = `${w} × ${h}`;
+  // Mirror the frame's new shape in the panel chip.
+  const swatch = $('#sizeSwatch');
+  const long = 26;
+  swatch.style.width = `${w >= h ? long : Math.max(6, (long * w) / h)}px`;
+  swatch.style.height = `${w >= h ? Math.max(6, (long * h) / w) : long}px`;
+
+  if (activeItem()) updateReadout(view.getFraming());
+  announce(`${name}, ${w} by ${h} pixels`);
 }
 
-for (const id of ['#targetW', '#targetH']) {
-  $(id).addEventListener('input', () => {
-    applyTarget(+$('#targetW').value, +$('#targetH').value);
-  });
-}
+createSizePicker({
+  root: $('#picker'),
+  input: $('#pickerInput'),
+  list: $('#pickerList'),
+  trigger: $('#sizeButton'),
+  onPick: (r) => applyTarget({ w: r.w, h: r.h, name: r.name }),
+});
 
 // ---- events ----------------------------------------------------------------
 
@@ -160,5 +172,6 @@ addEventListener('resize', () => view.resize());
 // ---- boot ------------------------------------------------------------------
 
 setChromeVisible(false);
-view.setTarget(store.get().target.w, store.get().target.h);
+const boot = store.get().target;
+applyTarget({ w: boot.w, h: boot.h, name: boot.label });
 view.resize();

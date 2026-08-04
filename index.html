@@ -48,15 +48,32 @@
     <aside class="panel" aria-label="Options">
       <section class="block">
         <h2>Output size</h2>
-        <div class="size-input">
-          <input id="targetW" type="number" min="1" max="16384" inputmode="numeric" aria-label="Output width" value="1080">
-          <span aria-hidden="true">×</span>
-          <input id="targetH" type="number" min="1" max="16384" inputmode="numeric" aria-label="Output height" value="1080">
-        </div>
-        <p class="note">The frame always matches this shape.</p>
+        <button id="sizeButton" class="size-button" type="button" aria-haspopup="dialog">
+          <span id="sizeSwatch" class="swatch" aria-hidden="true"></span>
+          <span class="size-text">
+            <strong id="sizeName">Square post</strong>
+            <span id="sizeDims">1080 × 1080</span>
+          </span>
+          <kbd class="size-key">⌘K</kbd>
+        </button>
+        <p class="note">Search by name, pixels or shape.</p>
       </section>
     </aside>
   </main>
+</div>
+
+<div id="picker" class="picker" hidden role="dialog" aria-modal="true" aria-label="Choose an output size">
+  <div class="picker-panel">
+    <input id="pickerInput" class="picker-input" type="text" autocomplete="off" spellcheck="false"
+      role="combobox" aria-expanded="true" aria-controls="pickerList" aria-autocomplete="list"
+      placeholder="ig story · yt thumb · og image · 1200 x 630 · 16:9">
+    <div id="pickerList" class="picker-list" role="listbox" aria-label="Sizes"></div>
+    <div class="picker-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
+      <span><kbd>↵</kbd> apply</span>
+      <span><kbd>esc</kbd> close</span>
+    </div>
+  </div>
 </div>
 
 <div id="status" class="sr-only" role="status" aria-live="polite"></div>
