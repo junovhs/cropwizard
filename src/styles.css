@@ -564,6 +564,143 @@ body.dragging .empty-inner { border-color: var(--accent); background: oklch(0.68
 }
 body.dragging .drop-veil { opacity: 1; }
 
+/* ---- framing a batch ----
+   The beat of the job — position, keep, next — parked under the frame it acts
+   on, because that is where the eyes already are. */
+
+/* Clear of the readout band along the bottom edge: the chips run wide enough to
+   reach the middle, and a call to action sitting on top of them is not one. */
+.framing {
+  position: absolute; left: 50%; bottom: 56px;
+  z-index: 6;
+  display: grid; justify-items: center; gap: 8px;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+}
+.framing[hidden] { display: none; }
+.framing > * { pointer-events: auto; }
+
+.framing-go {
+  min-height: 44px;
+  padding: 0 18px;
+  font-size: 14px;
+}
+.framing-go[hidden] { display: none; }
+.framing-go kbd {
+  border-color: oklch(1 0 0 / 0.45);
+  background: oklch(1 0 0 / 0.16);
+  color: #fff;
+}
+/* A slow breath, not a strobe: it says "this is waiting on you" without
+   demanding to be dealt with this second. Reduced motion stops it dead. */
+@keyframes framing-wait {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.62 0.16 50 / 0.42), 0 4px 14px oklch(0.62 0.16 50 / 0.22); }
+  55%      { box-shadow: 0 0 0 9px oklch(0.62 0.16 50 / 0), 0 4px 14px oklch(0.62 0.16 50 / 0.22); }
+}
+body.is-framing .framing-go { animation: framing-wait 2.1s var(--ease) infinite; }
+
+.framing-step {
+  margin: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: oklch(1 0 0 / 0.85);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(8px);
+}
+.framing-step.is-done { color: var(--positive); font-weight: 600; }
+
+/* While a crop is owed, everything that is not the picture or the queue steps
+   back — and comes straight back the moment you reach for it. */
+body.is-framing .topbar,
+body.is-framing .panel,
+body.is-framing .nav {
+  opacity: .48;
+  transition: opacity .25s var(--ease);
+}
+body.is-framing .topbar:hover,
+body.is-framing .topbar:focus-within,
+body.is-framing .panel:hover,
+body.is-framing .panel:focus-within,
+body.is-framing .nav:hover,
+body.is-framing .nav:focus-within { opacity: 1; }
+
+/* The export button was held back for the whole queue; when the last crop
+   lands it is the only thing left to do. */
+@keyframes export-ready {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.55 0.13 155 / 0), 0 4px 14px oklch(0.62 0.16 50 / 0.22); }
+  40%      { box-shadow: 0 0 0 7px oklch(0.55 0.13 155 / 0.3), 0 4px 14px oklch(0.62 0.16 50 / 0.22); }
+}
+.export-button.just-ready { animation: export-ready .8s var(--ease) 2; }
+
+/* ---- the batch explainer ----
+   Raised once, when a drop puts the app into a mode nobody asked for in words
+   (DEC-04). It states the loop and leaves. */
+
+.coach {
+  position: fixed; inset: 0; z-index: 45;
+  display: grid; place-items: center;
+  padding: 24px;
+  background: oklch(0.35 0.02 70 / 0.42);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity .18s var(--ease);
+}
+.coach[hidden] { display: none; }
+.coach.open { opacity: 1; }
+
+.coach-panel {
+  width: min(440px, 100%);
+  padding: 30px 30px 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+  text-align: center;
+  transform: translateY(-8px) scale(.985);
+  transition: transform .22s var(--ease);
+}
+.coach.open .coach-panel { transform: none; }
+
+.coach-mark {
+  width: 44px; height: 44px;
+  margin-bottom: 16px;
+  padding: 11px;
+  border-radius: var(--radius-lg);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+.coach h2 {
+  margin: 0 0 6px;
+  font-family: var(--font-disp);
+  font-size: 23px; font-weight: 600;
+  letter-spacing: -.03em; line-height: 1.14;
+  color: var(--ink);
+}
+.coach-lead { margin: 0 0 20px; color: var(--ink-3); font-size: 13px; }
+
+/* Three steps, numbered, read left-aligned: a sequence is not a paragraph. */
+.coach-steps {
+  display: grid;
+  gap: 11px;
+  margin: 0 0 24px;
+  padding: 0 0 0 22px;
+  text-align: left;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.coach-steps li::marker { color: var(--accent); font-weight: 700; }
+.coach-steps strong { color: var(--ink); font-weight: 600; }
+.coach-steps em { font-style: normal; font-weight: 600; color: var(--accent-2); }
+.coach-steps kbd { margin: 0 1px; }
+
+.coach #coachGo { width: 100%; min-height: 44px; font-size: 14px; }
+.coach-out { margin: 14px 0 0; color: var(--ink-4); font-size: 11.5px; }
+
 /* ---- filmstrip ---- */
 
 .strip {
@@ -677,6 +814,12 @@ body.dragging .thumb-add { border-color: var(--accent); background: var(--accent
   transform: translateY(-2px);
 }
 .thumb.is-active.is-approved { border-color: var(--positive); box-shadow: 0 0 0 2px oklch(0.62 0.14 155 / 0.16), var(--shadow-small); }
+
+/* Mid-queue the strip is a map, not a menu: the one you are working on is lit
+   and the rest recede to being a count of what is left. */
+body.is-framing .thumb:not(.is-active) { opacity: .42; }
+body.is-framing .thumb:not(.is-active):hover { opacity: .85; }
+body.is-framing .thumb.is-active { box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-medium); }
 
 .thumb-num {
   position: absolute; left: 4px; top: 4px;
@@ -1219,6 +1362,13 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   .stage-toggle { min-width: 34px; padding: 0 9px; }
   .readout { left: 12px; bottom: 12px; gap: 5px; max-width: calc(100% - 24px); }
   .chip { padding: 3px 8px; font-size: 10.5px; }
+
+  /* On a phone the beat takes the full width, still clear of the readouts. */
+  .framing { left: 12px; right: 12px; bottom: 46px; transform: none; }
+  .framing-go { width: 100%; }
+
+  .coach-panel { padding: 24px 22px 22px; }
+  .coach h2 { font-size: 20px; }
 
   .adjust { left: 12px; right: 12px; bottom: 12px; width: auto; padding: 15px; }
   .adjust-row { grid-template-columns: 62px 1fr 38px; }

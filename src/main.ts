@@ -127,6 +127,60 @@ function syncStageChrome(): void {
   $('#fitToggle').hidden = !hasImage || !cropping;
   $('#modeCrop').setAttribute('aria-selected', String(cropping));
   $('#modeAdjust').setAttribute('aria-selected', String(!cropping));
+  syncFramingChrome();
+}
+
+// ---- framing a batch -------------------------------------------------------
+
+// Approving a crop is the one thing a batch cannot do for you, and a keyboard
+// shortcut nobody has been told about is not an interface. So the beat gets a
+// button, the button says its own shortcut, and while a crop is still owed the
+// rest of the screen steps back so there is one obvious thing to do.
+function syncFramingChrome(): void {
+  const state = store.get();
+  const item = activeItem(state);
+  const framing = state.batch && mode === 'crop' && !!item;
+  $('#framing').hidden = !framing;
+
+  if (!framing || !item) {
+    document.body.classList.remove('is-framing');
+    return;
+  }
+
+  const total = state.items.length;
+  const done = state.items.filter((i) => i.approved).length;
+  const owed = !item.approved;
+
+  $<HTMLButtonElement>('#finalize').hidden = !owed;
+  $('#framingStep').textContent = owed
+    ? `Image ${state.activeIndex + 1} of ${total}${done ? ` · ${done} framed` : ''}`
+    : done === total
+      ? `All ${total} framed — export them below`
+      : `${done} of ${total} framed`;
+  $('#framingStep').classList.toggle('is-done', !owed && done === total);
+  // Nothing is dimmed once the queue is finished: the next thing to look at is
+  // the export button, and it lives in the panel that was being held back.
+  document.body.classList.toggle('is-framing', owed);
+}
+
+// The explainer DEC-04 requires whenever a drop puts the app into batch by
+// itself. It states the loop, then gets out of the way.
+function openCoach(count: number): void {
+  $('#coachTitle').textContent = `${count} images — one crop at a time`;
+  const coach = $('#coach');
+  coach.hidden = false;
+  requestAnimationFrame(() => {
+    coach.classList.add('open');
+    $<HTMLButtonElement>('#coachGo').focus();
+  });
+}
+
+function closeCoach(): void {
+  const coach = $('#coach');
+  if (coach.hidden) return;
+  coach.classList.remove('open');
+  coach.hidden = true;
+  canvas.focus();
 }
 
 function setMode(next: Mode): void {
@@ -241,6 +295,7 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
     store.set({ batch: true, items, activeIndex: -1 });
     activate(0);
     syncBatchChrome();
+    openCoach(items.length);
     announce(`${items.length} images loaded. Batch is on — frame each one, then keep it`);
     return;
   }
@@ -336,6 +391,8 @@ function activate(index: number): void {
 // always refreshed together.
 function syncUI(): void {
   strip.sync(store.get());
+  // Where you are in the queue is part of the same description.
+  syncFramingChrome();
   // The scale row states the pixels that would be written right now, so it is
   // refreshed with everything else that describes the pending export.
   exportPanel?.sync();
@@ -368,8 +425,18 @@ function approve(): void {
     announce(`Kept. ${s.items.filter((i) => i.approved).length} of ${s.items.length} framed`);
   } else {
     syncUI();
+    flashExport();
     announce(`All ${s.items.length} framed and ready`);
   }
+}
+
+// The queue is finished, so the thing that was dim all the way through is now
+// the only thing left to do. Say so where the eye already is.
+function flashExport(): void {
+  const button = $('#export');
+  button.classList.remove('just-ready');
+  void button.offsetWidth;
+  button.classList.add('just-ready');
 }
 
 // Accept every remaining auto-suggested crop as-is.
@@ -382,6 +449,7 @@ function approveRest(): void {
     }),
   }));
   syncUI();
+  flashExport();
   announce(`All ${state.items.length} framed and ready`);
 }
 
@@ -583,6 +651,12 @@ document.addEventListener('keydown', (e) => {
   if (focused && focused.matches?.('input, select, textarea')) return;
   if (!view.hasImage()) return;
   if (e.ctrlKey || e.metaKey) return;
+  // The explainer is modal: Enter belongs to its button, not to the crop
+  // waiting behind it.
+  if (!$('#coach').hidden) {
+    if (e.key === 'Escape') { e.preventDefault(); closeCoach(); }
+    return;
+  }
 
   // Every key below moves the framing or the queue. None of them belongs to
   // adjusting, and a stray arrow that quietly re-crops the image you were only
@@ -623,6 +697,12 @@ new ResizeObserver(() => { view.resize(); syncFitChrome(); }).observe(stage);
 
 $('#fitToggle').addEventListener('click', toggleFit);
 $('#enableBatch').addEventListener('click', () => setBatch(!store.get().batch));
+// The button and the Enter key are the same act, so they call the same thing.
+$('#finalize').addEventListener('click', approve);
+$('#coachGo').addEventListener('click', closeCoach);
+$('#coach').addEventListener('mousedown', (event) => {
+  if (event.target === $('#coach')) closeCoach();
+});
 $('#modeCrop').addEventListener('click', () => setMode('crop'));
 $('#modeAdjust').addEventListener('click', () => setMode('adjust'));
 

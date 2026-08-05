@@ -130,6 +130,18 @@
         </button>
       </div>
 
+      <!-- Batch framing is a job with a rhythm — position, keep, next — and the
+           rhythm has to be visible or people wait for the app to do it for
+           them. This is the beat, parked under the frame it belongs to. -->
+      <div id="framing" class="framing" hidden>
+        <button id="finalize" class="primary framing-go" type="button">
+          <span class="icon" data-icon="check"></span>
+          <span>Finalize this crop</span>
+          <kbd>↵</kbd>
+        </button>
+        <p id="framingStep" class="framing-step"></p>
+      </div>
+
       <div class="drop-veil"><span>Drop to load — one image, or the whole stack</span></div>
     </section>
 
@@ -239,6 +251,24 @@
       <span id="shapeHint"><kbd>⇧</kbd><kbd>↵</kbd> this shape, my pixels</span>
       <span id="escHint"><kbd>esc</kbd> close</span>
     </div>
+  </div>
+</div>
+
+<!-- Batch is never entered silently (DEC-04). A stack that switched the app into
+     a different mode has to say what the mode asks of you, once, before you
+     start guessing. -->
+<div id="coach" class="coach" hidden role="dialog" aria-modal="true" aria-labelledby="coachTitle">
+  <div class="coach-panel">
+    <span class="coach-mark icon" data-icon="layers"></span>
+    <h2 id="coachTitle">Batch is on</h2>
+    <p class="coach-lead">Every image gets its own crop, and you make each one.</p>
+    <ol class="coach-steps">
+      <li><strong>Drag and scroll</strong> the image until the frame holds what you want.</li>
+      <li><strong>Press <kbd>↵</kbd></strong>, or hit <em>Finalize this crop</em>, to keep it and jump to the next one.</li>
+      <li>At the end, export the lot as a single ZIP.</li>
+    </ol>
+    <button id="coachGo" class="primary" type="button">Frame the first one</button>
+    <p class="coach-out">Changed your mind? Turn Batch off in the sidebar.</p>
   </div>
 </div>
 
