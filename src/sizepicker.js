@@ -42,15 +42,13 @@ function rowAction(label, glyph, onRun) {
 }
 
 export function createSizePicker({
-  root, input, list, trigger, intake, intakeTitle, intakeDims, escHint, getCurrent, onPick,
+  root, input, list, trigger, getTemplate, onPick,
 }) {
   let rows = [];
   let cursor = 0;
   let recents = loadRecents();
   let saved = loadSaved();
-  // Set while something is waiting on an answer from the palette (intake).
-  let asking = null;
-  // The arriving image's own dimensions, offered as one of the answers.
+  // The image on the stage right now, offered as one of the answers.
   let template = null;
   // While naming, the one text box in the palette is the name box: same focus,
   // same Enter, no second dialog.
@@ -95,15 +93,15 @@ export function createSizePicker({
 
     rows = search(input.value, recents, saved);
 
-    // The arriving image's own size is an answer to the same question, so it is
-    // a row like any other — reachable by keyboard, showing its real numbers,
-    // and saying in words what taking it does to the image.
+    // The loaded image's own size is an answer to the same question, so it is a
+    // row like any other — reachable by keyboard and showing its real numbers.
+    // It is also the plainest way to say "leave the shape alone".
     if (template && !input.value.trim()) {
       rows = [{
         kind: 'template',
         key: 'template',
-        name: 'Its own size',
-        detail: 'Take the size, skip this image',
+        name: 'Match this image',
+        detail: 'Its own pixel size',
         w: template.w,
         h: template.h,
         section: 'From this image',
@@ -199,73 +197,25 @@ export function createSizePicker({
       recents = [r.id, ...recents.filter((x) => x !== r.id)].slice(0, MAX_RECENTS);
       saveRecents(recents);
     }
-    // Asking on intake is the same palette answering a question someone else
-    // posed, so the answer goes back to the asker rather than to onPick.
-    const answered = settle(r.kind === 'template'
-      ? { kind: 'template' }
-      : { kind: 'pick', row: r });
     close();
-    if (!answered) onPick(r);
-  }
-
-  // Hand the pending intake question its answer, exactly once.
-  function settle(answer) {
-    if (!asking) return false;
-    const resolve = asking;
-    asking = null;
-    template = null;
-    intake.hidden = true;
-    resolve(answer);
-    return true;
-  }
-
-  function updateEscHint() {
-    escHint.textContent = '';
-    const key = document.createElement('kbd');
-    key.textContent = 'esc';
-    const current = getCurrent();
-    const label = asking && current
-      ? ` keep ${current.label} — ${current.w} × ${current.h}`
-      : ' close';
-    escHint.append(key, document.createTextNode(label));
-  }
-
-  /**
-   * Ask for a size before something happens, with the palette as the question.
-   * `templateSize`, when given, offers the arriving image's own dimensions as
-   * the answer.
-   * @returns {Promise<{kind: 'pick'|'skip'|'template', row?: object}>}
-   */
-  function askFor(filename, templateSize = null) {
-    return new Promise((resolve) => {
-      asking = resolve;
-      template = templateSize;
-      intakeTitle.textContent = filename;
-      intakeDims.textContent = templateSize
-        ? `${templateSize.w} × ${templateSize.h}`
-        : 'Dimensions unavailable';
-      intake.hidden = false;
-      input.value = '';
-      open();
-    });
+    onPick(r);
   }
 
   function open() {
     root.hidden = false;
     naming = null;
     saved = loadSaved();     // another tab may have added one
+    template = getTemplate?.() || null;
     // Pre-select the text so the next keystroke replaces the old query.
     input.select();
     input.focus();
     cursor = 0;
-    updateEscHint();
     render();
     requestAnimationFrame(() => root.classList.add('open'));
   }
 
   function close() {
     naming = null;
-    settle({ kind: 'skip' });   // dismissing is an answer: keep the current size
     root.classList.remove('open');
     root.hidden = true;
     trigger.focus();
@@ -303,5 +253,5 @@ export function createSizePicker({
     }
   });
 
-  return { open, close, askFor, isOpen: () => !root.hidden };
+  return { open, close, isOpen: () => !root.hidden };
 }

@@ -112,55 +112,11 @@ function decode(file) {
 }
 
 // Every way an image can arrive — drop, paste, file picker — comes through
-// here. The first one is met with the question that has to be answered before
-// framing means anything: what size is this for?
+// here, and none of them stops to ask anything. Standing a modal in the doorway
+// only made sense if cropping to a preset were the one thing anyone ever wanted;
+// it is not, and even when it is, the size is easier to answer once you can see
+// the picture. So the image lands, and the size stays one keystroke away.
 async function intake(fileList) {
-  const files = [...fileList].filter((f) => f.type.startsWith('image/'));
-  if (!files.length) { announce('No images in that drop'); return; }
-
-  if (!sizeChosen) {
-    // The template offer needs the image's real dimensions, so the first file
-    // is decoded before the question rather than after the answer.
-    const probe = await decode(files[0]).catch(() => null);
-    const dims = probe ? { w: probe.naturalWidth, h: probe.naturalHeight } : null;
-    const answer = await picker.askFor(
-      files.length > 1 ? `${files[0].name} + ${files.length - 1} more` : files[0].name,
-      dims,
-    );
-    sizeChosen = true;
-
-    // Some images are not the work, they are the brief: the right size in the
-    // wrong picture. Taking the measurement and dropping the picture is the
-    // whole point, so nothing is loaded and the stage says what it is holding.
-    if (answer.kind === 'template' && dims) {
-      applyTarget({ w: dims.w, h: dims.h, name: 'Your template' });
-      armFor(dims);
-      return;
-    }
-    // A skipped question is answered by the size already on the panel.
-    if (answer.kind === 'pick') applyTarget({ w: answer.row.w, h: answer.row.h, name: answer.row.name });
-  }
-  return addFiles(files);
-}
-
-// Waiting, with a size in hand and nothing to put in it.
-function armFor({ w, h }) {
-  store.set({ items: [], activeIndex: -1 });
-  view.setImage(null, null);
-  setChromeVisible(false);
-  syncUI();
-  $('#filename').textContent = '';
-  $('#emptyTitle').textContent = `Ready at ${w} × ${h}`;
-  $('#emptyText').textContent = 'That size is set. Drop the image you want cut to it.';
-  announce(`Size taken from that image: ${w} by ${h} pixels. Drop the image to crop`);
-}
-
-function disarm() {
-  $('#emptyTitle').textContent = 'Drop an image';
-  $('#emptyText').textContent = 'Pick a size, frame it, take it away. Got a stack? Turn on batch below.';
-}
-
-async function addFiles(fileList) {
   const files = [...fileList].filter((f) => f.type.startsWith('image/'));
   if (!files.length) { announce('No images in that drop'); return; }
 
@@ -232,7 +188,6 @@ function activate(index) {
   if (!item) return;
   reframe(item, s.target);
   store.set({ activeIndex: index });
-  disarm();
   $('#filename').textContent = item.file.name;
   setChromeVisible(true);
   view.setImage(item.image, item.frame);
@@ -331,21 +286,36 @@ function applyTarget({ w, h, name }) {
   announce(`${name}, ${w} by ${h} pixels`);
 }
 
-// Until a size has actually been chosen, the panel is only showing a default —
-// so the next image to arrive is asked about rather than framed to a guess.
+// Until a size has actually been chosen the panel is only showing a default.
+// That used to be enforced with a modal; it is now said where the answer lives,
+// so an unanswered question nags instead of blocking.
 let sizeChosen = false;
 
-const picker = createSizePicker({
+function syncSizeConfidence() {
+  $('#sizeButton').classList.toggle('is-provisional', !sizeChosen);
+  $('#sizeNote').classList.toggle('is-unsettled', !sizeChosen);
+  $('#sizeNote').textContent = sizeChosen
+    ? 'Search by name, pixels or shape.'
+    : 'Suggested size — press ⌘K to set the one you actually need.';
+}
+
+createSizePicker({
   root: $('#picker'),
   input: $('#pickerInput'),
   list: $('#pickerList'),
   trigger: $('#sizeButton'),
-  intake: $('#pickerIntake'),
-  intakeTitle: $('#intakeTitle'),
-  intakeDims: $('#intakeDims'),
-  escHint: $('#escHint'),
-  getCurrent: () => store.get().target,
-  onPick: (r) => { sizeChosen = true; applyTarget({ w: r.w, h: r.h, name: r.name }); },
+  // The image on the stage is also an answer to the size question — the whole
+  // "use this as the template" move, now reachable whenever it is wanted rather
+  // than only in the half-second the file was arriving.
+  getTemplate: () => {
+    const item = activeItem();
+    return item ? { w: item.image.naturalWidth, h: item.image.naturalHeight } : null;
+  },
+  onPick: (r) => {
+    sizeChosen = true;
+    applyTarget({ w: r.w, h: r.h, name: r.name });
+    syncSizeConfidence();
+  },
 });
 
 // ---- export ----------------------------------------------------------------
@@ -547,4 +517,5 @@ setChromeVisible(false);
 syncNaming();
 const boot = store.get().target;
 applyTarget({ w: boot.w, h: boot.h, name: boot.label });
+syncSizeConfidence();
 view.resize();

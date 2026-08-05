@@ -82,7 +82,7 @@ button.ghost:hover:not(:disabled) { background: var(--raised); color: var(--ink)
   float: right;
   color: var(--muted);
 }
-.strip-head .icon, .stage-toggle .icon, .picker-intake .icon { width: 14px; height: 14px; }
+.strip-head .icon, .stage-toggle .icon { width: 14px; height: 14px; }
 .advanced summary .icon { width: 13px; height: 13px; margin-right: 6px; vertical-align: -2px; }
 
 .sr-only {
@@ -353,6 +353,21 @@ body.dragging .drop-veil { opacity: 1; }
   justify-content: flex-start;
   text-align: left;
 }
+/* A size nobody chose yet. It has to read as an open question without reading
+   as an error — a dashed edge says "not settled" where amber would say "wrong".
+   Dashed only works if you can see it: 3.37:1 on the panel, over the 3:1 WCAG
+   asks of a non-text boundary, where the standard --line would sit at 1.26. */
+.size-button.is-provisional {
+  border-style: dashed;
+  border-color: #5f6f85;
+}
+.size-button.is-provisional .swatch { border-style: dashed; background: none; }
+
+/* The line that says the size is only a guess is the whole point of the state,
+   so it is not incidental grey. #b8c2d1 is 9.6:1 on the panel — AAA — against
+   --muted's 5.85:1, which is legible but recedes exactly when it shouldn't. */
+.note.is-unsettled { color: #b8c2d1; }
+
 .size-text { display: grid; flex: 1; min-width: 0; }
 .size-text strong { font-size: 14px; }
 .size-text span { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -493,29 +508,6 @@ body.dragging .drop-veil { opacity: 1; }
   transition: transform .22s var(--ease);
 }
 .picker.open .picker-panel { transform: none; }
-
-/* On intake the palette is standing between an image and the stage, so it says
-   which image it is asking about and offers the way past. */
-.picker-intake {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--line);
-  background: var(--raised);
-  color: var(--ink);
-  font-size: 12.5px;
-}
-.picker-intake[hidden] { display: none; }
-.picker-intake .intake-name {
-  flex: 1; min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  color: var(--ink);
-  font-weight: 650;
-}
-.picker-intake .intake-dims {
-  flex: 0 0 auto;
-  color: #fff;
-  font-variant-numeric: tabular-nums;
-}
 
 /* The palette answers a question, so it asks one — in prose, not in a
    dot-separated string of placeholder tokens. */

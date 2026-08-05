@@ -27,7 +27,7 @@
       <div id="empty" class="empty">
         <div class="empty-inner">
           <h1 id="emptyTitle">Drop an image</h1>
-          <p id="emptyText">Pick a size, frame it, take it away. Got a stack? Turn on batch below.</p>
+          <p id="emptyText">It lands straight on the stage — no questions. Set the size when you want it. Got a stack? Turn on batch below.</p>
           <button id="emptyAdd" class="primary" type="button"><span class="icon" data-icon="image"></span>Choose an image</button>
         </div>
       </div>
@@ -52,7 +52,7 @@
         <span class="hint-key"><kbd>↵</kbd> keep &amp; next</span>
       </div>
 
-      <div class="drop-veil">Drop to add</div>
+      <div class="drop-veil">Drop to load — crop it, or just resize it</div>
     </section>
 
     <footer id="strip" class="strip is-off" aria-label="Image queue">
@@ -80,7 +80,7 @@
           </span>
           <kbd class="size-key">⌘K</kbd>
         </button>
-        <p class="note">Search by name, pixels or shape.</p>
+        <p id="sizeNote" class="note">Search by name, pixels or shape.</p>
       </section>
 
       <section class="block">
@@ -127,11 +127,6 @@
 
 <div id="picker" class="picker" hidden role="dialog" aria-modal="true" aria-label="Choose an output size">
   <div class="picker-panel">
-    <div id="pickerIntake" class="picker-intake" hidden>
-      <span class="icon" data-icon="image"></span>
-      <span id="intakeTitle" class="intake-name"></span>
-      <span id="intakeDims" class="intake-dims"></span>
-    </div>
     <label class="picker-head" for="pickerInput">What size do you need?</label>
     <div class="picker-search">
       <span class="icon picker-mark" data-icon="search"></span>
