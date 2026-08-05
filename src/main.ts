@@ -409,6 +409,12 @@ function setBatch(on: boolean): void {
 function syncBatchChrome(): void {
   const on = store.get().batch;
   $('#enableBatch').setAttribute('aria-pressed', String(on));
+  // An empty stage is an instruction, so it has to be the instruction that is
+  // actually true: with batch on, the next drop behaves differently and the
+  // card says how. One card is swapped for the other in place — a second card
+  // stacked underneath would be two answers to the same question.
+  $('#emptyDefault').hidden = on;
+  $('#emptyBatch').hidden = !on;
   $('#batchState').textContent = on ? 'On' : 'Off';
   $('#batchNote').textContent = on
     ? 'Frame each image, then keep it. Turn off to go back to one.'
@@ -721,6 +727,7 @@ $('#redo').addEventListener('click', () => {
 const openPicker = () => { fileInput.value = ''; fileInput.click(); };
 $('#add').onclick = openPicker;
 $('#emptyAdd').onclick = openPicker;
+$('#batchAdd').onclick = openPicker;
 fileInput.onchange = () => { if (fileInput.files) void intake(fileInput.files); };
 
 let dragDepth = 0;

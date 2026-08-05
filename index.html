@@ -89,12 +89,30 @@
       <input id="file" type="file" accept="image/*" multiple hidden>
 
       <div id="empty" class="empty">
-        <div class="empty-inner">
+        <div id="emptyDefault" class="empty-inner">
           <span class="empty-mark icon" data-icon="image"></span>
           <h1 id="emptyTitle">Drop an image — or a whole stack</h1>
           <p id="emptyText">One lands straight on the stage, no questions asked. Drop several and batch turns itself on, so you can frame them one after another.</p>
           <button id="emptyAdd" class="primary" type="button"><span class="icon" data-icon="image"></span>Choose images</button>
           <p class="empty-privacy">Nothing is uploaded. Images stay in your browser.</p>
+        </div>
+
+        <!-- Switching Batch on by hand is a statement about the next drop, so
+             the card that describes the drop is the thing that has to change.
+             Same words as the explainer modal, in the place you are already
+             looking, and with no count to state because nothing has arrived. -->
+        <div id="emptyBatch" class="empty-inner empty-batch" hidden>
+          <span class="empty-mark icon" data-icon="layers"></span>
+          <h1>Batch crop</h1>
+          <p>Every image gets its own crop, and you make each one.</p>
+          <ol class="coach-steps">
+            <li><strong>Drop a stack</strong>, or choose them below.</li>
+            <li><strong>Drag and scroll</strong> the image until the frame holds what you want.</li>
+            <li><strong>Press <kbd>↵</kbd></strong>, or hit <em>Finalize this crop</em>, to keep it and jump to the next one.</li>
+            <li>At the end, export the lot as a single ZIP.</li>
+          </ol>
+          <button id="batchAdd" class="primary" type="button"><span class="icon" data-icon="image"></span>Choose images</button>
+          <p class="empty-privacy">Changed your mind? Turn Batch off in the sidebar.</p>
         </div>
       </div>
 

@@ -708,7 +708,20 @@ kbd {
   color: var(--ink-4);
   font-size: 11.5px;
 }
+.empty-inner[hidden] { display: none; }
 body.dragging .empty-inner { border-color: var(--accent); background: oklch(0.68 0.13 50 / 0.06); }
+
+/* The batch card carries a sequence rather than a sentence, so it is a little
+   wider and a little tighter than the drop card it stands in for, and it borrows
+   the explainer's numbered steps rather than restating them in its own voice. */
+.empty-batch {
+  width: min(470px, 100%);
+  padding: 36px 34px 30px;
+}
+.empty-batch h1 { font-size: 25px; }
+.empty-batch p { margin: 0 0 18px; }
+.empty-batch .coach-steps { margin: 0 0 22px; }
+.empty-batch .primary { width: 100%; min-height: 44px; font-size: 14px; }
 
 .drop-veil {
   position: absolute; inset: 12px;
