@@ -1,6 +1,7 @@
 // Turning framings into files.
 
 import { makeZip } from './zip.js';
+import { encodePng } from './png.js';
 import { filterFor } from './adjust.js';
 import { canvasContext } from './infrastructure/dom.js';
 import type {
@@ -88,7 +89,7 @@ const EXT_BY_MIME: Readonly<Record<string, string>> = {
 };
 const ENCODE_TIMEOUT = 20_000;
 
-export function encode(
+function toBlob(
   canvas: HTMLCanvasElement,
   format: ExportFormat,
   quality: number,
@@ -105,6 +106,21 @@ export function encode(
       else reject(new Error(`Could not encode ${label}`));
     }, mime, lossy ? quality : undefined);
   });
+}
+
+export async function encode(
+  canvas: HTMLCanvasElement,
+  format: ExportFormat,
+  quality: number,
+): Promise<Blob> {
+  const blob = await toBlob(canvas, format, quality);
+  if (format !== 'png') return blob;
+
+  // PNG is lossless, so a smaller PNG of the same pixels is free money — but
+  // only if it is actually smaller, which for a photograph it often is not.
+  // Both are the same picture, so the choice can be made on size alone.
+  const ours = await encodePng(canvasContext(canvas).getImageData(0, 0, canvas.width, canvas.height));
+  return ours && ours.size < blob.size ? ours : blob;
 }
 
 const sanitize = (value: string): string => value.replace(/[^\p{L}\p{N}._-]+/gu, '-')
