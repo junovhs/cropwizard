@@ -6,3 +6,6 @@
 # semmap artifacts (regenerable, not committed - DEC-10)
 SEMMAP.md
 .semmap/
+
+# semclear witness — regenerated per candidate by `semclear delta`, same class
+semclear-verification.json
