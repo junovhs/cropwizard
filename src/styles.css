@@ -435,11 +435,24 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
 /* ---- stage overlays ---- */
 
-.readout {
-  position: absolute; left: 18px; bottom: 18px;
-  display: flex; gap: 6px; flex-wrap: wrap;
+/* The stage's bottom row. Both halves live in one flex line, so the zoom
+   control's width is taken out of the chips' room rather than laid over it. */
+.stage-foot {
+  position: absolute; left: 18px; right: 18px; bottom: 18px;
+  z-index: 4;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px 12px;
   pointer-events: none;
-  max-width: calc(100% - 36px);
+}
+.stage-foot > * { pointer-events: auto; }
+
+.readout {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  /* First to give ground: chips that wrap to the line above are still readable,
+     a slider that shrinks stops being the thing that was asked for. */
+  flex: 0 1 auto;
+  min-width: 0;
+  pointer-events: none;
 }
 /* `display` on a class outranks the UA rule for [hidden], so restate it. */
 .readout[hidden] { display: none; }
@@ -496,12 +509,16 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   backdrop-filter: none;
 }
 .history-group .stage-tool:hover:not(:disabled) { background: oklch(0.55 0.02 70 / 0.09); }
-.stage-toggle[hidden] { display: none; }
-.stage-toggle[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: oklch(0.98 0.012 60);
-  color: var(--accent-2);
+/* The same segmented control the options panel uses, in the stage's own
+   translucent chrome: two sides, both readable, one of them lit. */
+.stage-segmented {
+  grid-template-columns: auto auto;
+  background: oklch(1 0 0 / 0.88);
+  box-shadow: var(--shadow-small);
+  backdrop-filter: blur(8px);
 }
+.stage-segmented[hidden] { display: none; }
+.stage-segmented button { padding: 0 12px; white-space: nowrap; }
 
 /* ---- zoom ----
    Bottom right, opposite the readout: the same family as the other stage
@@ -509,9 +526,11 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
    and the number it is setting. */
 
 .zoom-tool {
-  position: absolute; right: 18px; bottom: 18px;
-  z-index: 4;
   display: flex; align-items: center; gap: 6px;
+  flex: 0 1 auto;
+  /* Alone on its line once the chips have wrapped, it still belongs on the
+     right — the hand goes to the same corner either way. */
+  margin-left: auto;
   padding: 4px 6px;
   border: 1px solid var(--edge);
   border-radius: 999px;
@@ -536,7 +555,12 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 /* A plain rail with an accent grip. Range inputs need both vendor tracks spelled
    out or one browser draws its own idea of a slider on our paper. */
 .zoom-slider {
-  width: 132px;
+  /* Long on purpose: the whole point of the slider is that the distance your
+     hand travels is the resolution you get, so it takes the room the stage can
+     spare and gives it back on a narrow one. */
+  width: 396px;
+  flex: 0 1 auto;
+  min-width: 70px;
   height: 20px;
   margin: 0;
   background: transparent;
@@ -1545,9 +1569,10 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
 
   /* Stage chrome shrinks so the picture keeps the screen. */
   .stage-tools { right: 12px; top: 12px; gap: 6px; }
-  .stage-toggle span:not(.icon) { display: none; }
-  .stage-toggle { min-width: 34px; padding: 0 9px; }
-  .readout { left: 12px; bottom: 12px; gap: 5px; max-width: calc(100% - 24px); }
+  .stage-segmented button { padding: 0 8px; font-size: 11px; }
+  /* Too narrow for a row: the chips take the line above the zoom control. */
+  .stage-foot { left: 12px; right: 12px; bottom: 12px; gap: 8px; }
+  .readout { gap: 5px; }
   .chip { padding: 3px 8px; font-size: 10.5px; }
 
   /* On a phone the beat takes the full width, still clear of the readouts. */

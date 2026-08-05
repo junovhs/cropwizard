@@ -130,11 +130,6 @@
         </div>
       </div>
 
-      <div id="readout" class="readout" hidden>
-        <span class="chip">Cutting <strong id="cropSize">—</strong></span>
-        <span id="qualityChip" class="chip good">Quality <strong id="quality">—</strong></span>
-        <span id="scaleChip" class="chip" hidden></span>
-      </div>
 
       <!-- Stage tools, top right: step back and forth through your edits, and
            choose whether the frame is shown at its real size. -->
@@ -147,9 +142,15 @@
             <span class="icon" data-icon="redo"></span>
           </button>
         </div>
-        <button id="fitToggle" class="stage-tool stage-toggle" type="button" aria-pressed="false" hidden>
-          <span class="icon" data-icon="maximize"></span><span id="fitLabel">Fit to stage</span>
-        </button>
+        <!-- Two ways to look at the same crop, both on screen at once. A single
+             button had to be labelled with one of them, and whichever it named
+             read as the state you were in about as often as the one you would
+             switch to. -->
+        <div id="viewMode" class="segmented stage-segmented" role="radiogroup"
+          aria-label="How the frame is shown" hidden>
+          <button type="button" role="radio" data-fit="false" aria-checked="true">True size</button>
+          <button type="button" role="radio" data-fit="true" aria-checked="false">Enlarged for editing</button>
+        </div>
       </div>
 
       <!-- Batch framing is a job with a rhythm — position, keep, next — and the
@@ -164,20 +165,32 @@
         <p id="framingStep" class="framing-step"></p>
       </div>
 
-      <!-- Zoom, stated as a number and driven as a continuous quantity. The
-           wheel is a coarse instrument — the slider is logarithmic, so every
-           step is the same proportion of what you are already at, and the field
-           is there for the times you know the number you want. -->
-      <div id="zoomTool" class="zoom-tool" hidden>
-        <button id="zoomOut" class="zoom-step" type="button" aria-label="Zoom out" title="Zoom out">−</button>
-        <input id="zoomSlider" class="zoom-slider" type="range" min="0" max="1000" step="1" value="0"
-          aria-label="Zoom">
-        <button id="zoomIn" class="zoom-step" type="button" aria-label="Zoom in" title="Zoom in">+</button>
-        <span class="zoom-field">
-          <input id="zoomValue" class="zoom-value" type="text" inputmode="decimal" spellcheck="false"
-            value="100" aria-label="Zoom percentage">
-          <span class="zoom-unit" aria-hidden="true">%</span>
-        </span>
+      <!-- The foot of the stage: what the crop is, on the left, and the zoom
+           driving it, on the right. One row rather than two loose corners, so a
+           long slider takes room from the chips instead of sitting on top of
+           them. -->
+      <div class="stage-foot">
+        <div id="readout" class="readout" hidden>
+          <span class="chip">Cutting <strong id="cropSize">—</strong></span>
+          <span id="qualityChip" class="chip good">Quality <strong id="quality">—</strong></span>
+          <span id="scaleChip" class="chip" hidden></span>
+        </div>
+
+        <!-- Zoom, stated as a number and driven as a continuous quantity. The
+             wheel is a coarse instrument — the slider is logarithmic, so every
+             step is the same proportion of what you are already at, and the
+             field is there for the times you know the number you want. -->
+        <div id="zoomTool" class="zoom-tool" hidden>
+          <button id="zoomOut" class="zoom-step" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+          <input id="zoomSlider" class="zoom-slider" type="range" min="0" max="1000" step="1" value="0"
+            aria-label="Zoom">
+          <button id="zoomIn" class="zoom-step" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+          <span class="zoom-field">
+            <input id="zoomValue" class="zoom-value" type="text" inputmode="decimal" spellcheck="false"
+              value="100" aria-label="Zoom percentage">
+            <span class="zoom-unit" aria-hidden="true">%</span>
+          </span>
+        </div>
       </div>
 
       <div class="drop-veil"><span>Drop to load — one image, or the whole stack</span></div>

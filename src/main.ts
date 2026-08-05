@@ -126,7 +126,7 @@ function syncStageChrome(): void {
   // that is the decision being made.
   $('#readout').hidden = !hasImage || !cropping;
   $('#hints').hidden = !hasImage || !cropping;
-  $('#fitToggle').hidden = !hasImage || !cropping;
+  $('#viewMode').hidden = !hasImage || !cropping;
   // Zoom is a fact about the framing, so it is on screen exactly as long as the
   // framing is the job in hand.
   $('#zoomTool').hidden = !hasImage || !cropping;
@@ -233,21 +233,31 @@ function showAdjust(item: CropItem): void {
 // ---- true size vs fit ------------------------------------------------------
 
 // The frame is the output at its real size (DEC-03). Two things need saying:
-// which mode you are in, and — when the target is bigger than the stage — that
-// what you are looking at is a reduction rather than the real thing.
+// which of the two views you are in, and — whenever what you are looking at is
+// not the real thing — how far off it is.
 function syncFitChrome(): void {
   const fit = view.isFit();
   const percent = Math.round(view.getFrameScale() * 100);
-  $('#fitToggle').setAttribute('aria-pressed', String(fit));
-  $('#fitLabel').textContent = fit ? 'True size' : 'Fit to stage';
+  for (const option of $$<HTMLButtonElement>('#viewMode [role="radio"]')) {
+    option.setAttribute('aria-checked', String((option.dataset.fit === 'true') === fit));
+  }
 
+  // True size is a claim about the screen, so it has to be withdrawn when the
+  // stage is too small to honour it — that is the one case where the mode you
+  // picked and the thing you are seeing are not the same.
   const capped = !fit && percent < 100;
   const chip = $('#scaleChip');
   chip.hidden = !fit && !capped;
   chip.classList.toggle('warn', capped);
+  // Enlarging only has somewhere to go while the crop is smaller than the
+  // stage; past that the stage is the limit in both views and they show the
+  // same picture, which is worth saying rather than leaving you to click back
+  // and forth looking for the difference.
   chip.textContent = fit
-    ? `Fit to stage — ${percent}%`
-    : capped ? `Bigger than the stage — shown at ${percent}%` : '';
+    ? percent > 100
+      ? `Enlarged — ${percent}% of true size`
+      : `As large as the stage allows — ${percent}% of true size`
+    : capped ? `Too big for the stage — shown at ${percent}% of true size` : '';
 }
 
 // ---- zoom ------------------------------------------------------------------
@@ -305,11 +315,18 @@ zoomField.addEventListener('keydown', (e) => {
 $('#zoomIn').addEventListener('click', () => view.zoomBy(1.1));
 $('#zoomOut').addEventListener('click', () => view.zoomBy(1 / 1.1));
 
-function toggleFit(): void {
-  const next = !view.isFit();
-  view.setFit(next);
+// Picking a view is not the same act as flipping between them: the radio says
+// which one it wants and asking for the one you are in is nothing at all.
+function setViewMode(fit: boolean): void {
+  if (view.isFit() === fit) return;
+  view.setFit(fit);
   syncFitChrome();
-  announce(next ? 'Fit to stage' : 'True size');
+  announce(fit ? 'Enlarged for editing' : 'True size');
+}
+
+// The f key is a flip, because a key has no side to press.
+function toggleFit(): void {
+  setViewMode(!view.isFit());
 }
 
 // ---- intake ----------------------------------------------------------------
@@ -820,7 +837,9 @@ document.addEventListener('keydown', (e) => {
 // itself rather than the window.
 new ResizeObserver(() => { view.resize(); syncFitChrome(); }).observe(stage);
 
-$('#fitToggle').addEventListener('click', toggleFit);
+for (const option of $$<HTMLButtonElement>('#viewMode [role="radio"]')) {
+  option.addEventListener('click', () => setViewMode(option.dataset.fit === 'true'));
+}
 $('#enableBatch').addEventListener('click', () => setBatch(!store.get().batch));
 // The button and the Enter key are the same act, so they call the same thing.
 $('#finalize').addEventListener('click', approve);
