@@ -10,6 +10,7 @@ import type { PinnedSize } from './domain/types.js';
 const KEY = 'cropwizard.pinned';
 const MAX_PINS = 8;
 
+/** A pin's identity: its rounded pixels, so one rectangle is one pin. */
 export const pinId = (w: number, h: number): string => `${Math.round(w)}x${Math.round(h)}`;
 
 function isPinnedSize(value: unknown): value is PinnedSize {
@@ -53,6 +54,7 @@ function write(list: readonly PinnedSize[]): PinnedSize[] {
   return copy;
 }
 
+/** Every pinned size, oldest first. Bad or absent storage reads as none. */
 export const loadPinned = read;
 
 /** Whether these exact pixels are already on the top bar. */
