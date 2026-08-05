@@ -4,17 +4,7 @@
 // they search for "ig tall", "4x5", "the one that takes up more feed", "pfp", "thumbnail".
 // Every way a marketer, developer, or creator might query a size lives here.
 
-export interface Preset {
-  id: string;
-  group: string;
-  name: string;
-  w: number;
-  h: number;
-  hot?: boolean;
-  keywords: string[];
-}
-
-export const PRESETS: Preset[] = [
+export const PRESETS = [
   // ==========================================
   // ---- INSTAGRAM ----
   // ==========================================
