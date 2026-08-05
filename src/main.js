@@ -6,6 +6,7 @@ import { createSizePicker } from './sizepicker.js';
 import { createFilmstrip } from './filmstrip.js';
 import { autoFrame, refit } from './autoframe.js';
 import { FORMATS, DEFAULT_TEMPLATE, expandName, exportAll } from './export.js';
+import { createAdjustPanel, neutral } from './adjust.js';
 import { paintIcons } from './icons.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -102,6 +103,30 @@ function setMode(next) {
 function setChromeVisible(on) {
   hasImage = on;
   syncStageChrome();
+}
+
+// ---- adjustments -----------------------------------------------------------
+
+// The panel is a view of one item's numbers, never a store of its own: it is
+// loaded from whatever is on the stage and writes straight back to it, so the
+// answers belong to the image and cannot follow you to the next one.
+const adjustPanel = createAdjustPanel({
+  rows: $('#adjustRows'),
+  reset: $('#adjustReset'),
+  note: $('#adjustUnsupported'),
+  onAnnounce: announce,
+  onChange(adjust) {
+    const item = activeItem();
+    if (item) item.adjust = adjust;
+    view.setAdjust(adjust);
+    // The filmstrip is a contact sheet of what would be exported, so it has to
+    // carry the adjustment too — but only once the slider stops moving.
+    syncStripSoon();
+  },
+});
+
+function showAdjust(item) {
+  view.setAdjust(adjustPanel.load(item.adjust || neutral()));
 }
 
 // ---- true size vs fit ------------------------------------------------------
@@ -223,6 +248,7 @@ function activate(index) {
   $('#filename').textContent = item.file.name;
   setChromeVisible(true);
   view.setImage(item.image, item.frame);
+  showAdjust(item);
   syncUI();
   strip.scrollToActive(store.get());
   canvas.focus();

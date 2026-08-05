@@ -48,11 +48,15 @@
 
       <div id="adjust" class="adjust" role="tabpanel" aria-labelledby="modeAdjust" hidden>
         <div class="adjust-inner">
-          <span class="icon adjust-mark" data-icon="sliders"></span>
-          <h2>Adjust</h2>
-          <p>Saturation, contrast and exposure belong here. They are not built yet —
-             this is the door, not the room.</p>
+          <div class="adjust-head">
+            <span class="icon adjust-mark" data-icon="sliders"></span>
+            <h2>Adjust</h2>
+            <button id="adjustReset" class="ghost adjust-reset" type="button" hidden>Reset all</button>
+          </div>
+          <div id="adjustRows" class="adjust-rows"></div>
           <p class="adjust-keep">Your crop is untouched while you are in here.</p>
+          <p id="adjustUnsupported" class="note" hidden>This browser cannot apply
+             adjustments to a canvas, so they would not survive the export.</p>
         </div>
       </div>
 

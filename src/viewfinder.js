@@ -10,6 +10,7 @@
 // release their targets are set to the nearest legal framing and they ease home.
 
 import { Spring, Pulse, createLoop, clamp, rubber } from './juice.js';
+import { filterFor } from './adjust.js';
 
 const GHOST_IDLE = 0.12;      // what you keep seeing of the discarded image
 const GHOST_ACTIVE = 0.34;    // ...and how much it lifts while you work
@@ -22,6 +23,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
   const ctx = canvas.getContext('2d');
 
   let image = null;
+  let filter = 'none';
   let aspect = 1;
   let targetW = 1, targetH = 1;
   // DEC-03: the frame is the output at its real size on screen. `fitMode` is the
@@ -200,6 +202,11 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     const h = image.naturalHeight * scale.v;
     const f = frameRect();
 
+    // The adjustment rides on both passes, so the ghost you are cutting away is
+    // the same picture as the one you are keeping. The chrome below is drawn
+    // unfiltered — the frame is furniture, not part of the photograph.
+    ctx.filter = filter;
+
     // 1. the whole image, faint — this is the part you are cutting away.
     ctx.globalAlpha = ghost.v;
     ctx.drawImage(image, tx.v, ty.v, w, h);
@@ -213,6 +220,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     ctx.drawImage(image, tx.v, ty.v, w, h);
     ctx.restore();
 
+    ctx.filter = 'none';
     drawChrome(f);
   }
 
@@ -436,6 +444,14 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
       image = next;
       canvas.style.cursor = next ? 'grab' : 'default';
       if (next) applyFraming(framing);
+      loop.kick();
+    },
+    // The live adjustment for whatever is on the stage. Only the pixels change:
+    // the framing, the springs and the frame itself never hear about it.
+    setAdjust(adjust) {
+      const next = filterFor(adjust);
+      if (next === filter) return;
+      filter = next;
       loop.kick();
     },
     setTarget(w, h) {

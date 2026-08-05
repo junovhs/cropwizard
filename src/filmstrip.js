@@ -4,6 +4,8 @@
 // live contact sheet of what you are about to export. Watching it fill in is
 // the whole reward loop for a twenty-image batch.
 
+import { filterFor } from './adjust.js';
+
 const THUMB_H = 56;
 
 export function createFilmstrip({
@@ -25,7 +27,9 @@ export function createFilmstrip({
     ctx.clearRect(0, 0, w, h);
     const f = item.frame;
     if (!f) return;
+    ctx.filter = filterFor(item.adjust);
     ctx.drawImage(item.image, f.cx - f.cropW / 2, f.cy - f.cropH / 2, f.cropW, f.cropH, 0, 0, w, h);
+    ctx.filter = 'none';
   }
 
   function build(item, index) {
@@ -79,9 +83,11 @@ export function createFilmstrip({
       cell.index = index;
       cell.el.querySelector('.thumb-num').textContent = String(index + 1);
 
-      // Redraw only when the crop or the target actually moved.
+      // Redraw only when the crop, the adjustment or the target actually moved.
       const f = item.frame;
-      const key = f ? `${Math.round(f.cx)},${Math.round(f.cy)},${Math.round(f.cropW)},${target.w}x${target.h}` : '';
+      const key = f
+        ? `${Math.round(f.cx)},${Math.round(f.cy)},${Math.round(f.cropW)},${target.w}x${target.h},${filterFor(item.adjust)}`
+        : '';
       if (key !== cell.key) { drawThumb(cell.canvas, item, target); cell.key = key; }
 
       cell.el.classList.toggle('is-active', index === activeIndex);

@@ -233,9 +233,46 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 }
 .adjust[hidden] { display: none; }
 .adjust-mark { width: 18px; height: 18px; color: var(--accent); }
-.adjust h2 { margin: 8px 0 6px; font-size: 15px; letter-spacing: -.02em; }
+.adjust h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
 .adjust p { margin: 0; color: var(--muted); font-size: 12.5px; }
-.adjust .adjust-keep { margin-top: 10px; color: var(--good); }
+.adjust .adjust-keep { margin-top: 12px; color: var(--good); }
+
+.adjust-head { display: flex; align-items: center; gap: 8px; }
+/* "Reset all" is the undo for a whole session of fiddling, so it is only there
+   once there is something to undo — and it never moves the heading when it
+   appears, because a button that shoves the title sideways reads as a jump. */
+.adjust-reset { margin-left: auto; min-height: 26px; padding: 0 8px; font-size: 12px; }
+.adjust-reset[hidden] { display: none; }
+
+.adjust-rows { display: grid; gap: 10px; margin-top: 14px; }
+/* Label, slider, value: one grid so the three rows line up as a column of
+   readings rather than three independent controls. */
+.adjust-row {
+  display: grid;
+  grid-template-columns: 74px 1fr 40px;
+  align-items: center;
+  gap: 10px;
+}
+.adjust-row label { color: var(--muted); font-size: 12px; }
+.adjust-row input[type="range"] { min-width: 0; accent-color: var(--accent); }
+.adjust-row input[type="range"]:disabled { opacity: .4; }
+
+/* The reading is the reset: a plain number until it has something to undo, and
+   a real button the moment it does. */
+.adjust-value {
+  min-height: 22px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  justify-content: flex-end;
+}
+.adjust-value:disabled { color: var(--muted); opacity: 1; }
+.adjust-value:not(:disabled) { border-color: var(--line); color: var(--accent); }
+.adjust-value:hover:not(:disabled) { background: var(--raised); color: var(--ink); }
 
 .hints {
   position: absolute; right: 16px; bottom: 16px;

@@ -21,8 +21,13 @@ function createStore(initial) {
   };
 }
 
+import { neutral } from './adjust.js';
+
 // A queued image. `frame` is the user's framing decision for this item, kept in
 // source-image pixel space so it survives target-size changes and re-layout.
+// `adjust` is the other half of that decision — exposure, contrast, saturation —
+// and it lives on the item for the same reason: one image, one set of answers,
+// never shared across the queue.
 export function createItem(file, image) {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -30,6 +35,7 @@ export function createItem(file, image) {
     image,
     name: file.name.replace(/\.[^.]+$/, '') || 'image',
     frame: null,     // {cx, cy, scale} — set on first activation
+    adjust: neutral(),
     approved: false,
   };
 }

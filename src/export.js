@@ -1,6 +1,7 @@
 // Turning framings into files.
 
 import { makeZip } from './zip.js';
+import { filterFor } from './adjust.js';
 
 export const FORMATS = {
   png:  { mime: 'image/png',  ext: 'png',  label: 'PNG',  lossy: false, alpha: true },
@@ -11,7 +12,7 @@ export const FORMATS = {
 export const DEFAULT_TEMPLATE = '{name}-{w}x{h}';
 
 /**
- * Render one item's framing at exactly the target pixel size.
+ * Render one item's framing and adjustment at exactly the target pixel size.
  * Large reductions are done in halving steps: a single drawImage that shrinks
  * by more than 2x undersamples and comes out mushy.
  */
@@ -47,7 +48,13 @@ export function renderItem(item, target, format) {
   }
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
+  // The adjustment is baked once, on the final draw. The halving steps above
+  // must stay untouched: filtering each of them would apply the same contrast
+  // curve two or three times over and the file would not match the stage.
+  // It also goes on after the white JPEG backdrop, which is not the photograph.
+  ctx.filter = filterFor(item.adjust);
   ctx.drawImage(src, sx, sy, sw, sh, 0, 0, target.w, target.h);
+  ctx.filter = 'none';
   return out;
 }
 
