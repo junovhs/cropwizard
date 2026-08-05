@@ -345,7 +345,9 @@ button.ghost:hover:not(:disabled) { background: oklch(0.55 0.02 70 / 0.07); colo
 
 /* ---- pinned sizes ----
    A decision already made, so it is a chip rather than a control: small, quiet,
-   and one click from being applied. */
+   and one click from being applied. They live beside the filename, because they
+   are about the image you have open — not beside Add images, which is about the
+   next one. A hairline keeps the two facts from reading as one run of text. */
 
 .pins {
   display: flex;
@@ -354,7 +356,8 @@ button.ghost:hover:not(:disabled) { background: oklch(0.55 0.02 70 / 0.07); colo
   max-width: min(52%, 620px);
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 3px;
+  padding: 3px 3px 3px 14px;
+  border-left: 1px solid var(--line-soft);
   scrollbar-width: thin;
 }
 .pins[hidden] { display: none; }
