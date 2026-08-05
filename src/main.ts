@@ -232,17 +232,27 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
     if (lead) items[0] = { ...lead, frame: wholeFrame(lead), framedFor: targetKey(s.target) };
   }
 
+  // A stack is its own answer to the question the app used to ask (DEC-04):
+  // dropping twelve files is the deliberate act, so it is honoured rather than
+  // queried. Showing one of the twelve and flashing a switch made the user say
+  // the same thing twice. Entering this way is never silent, and the switch
+  // that turned it on turns it off again.
+  if (!s.batch && items.length > 1) {
+    store.set({ batch: true, items, activeIndex: -1 });
+    activate(0);
+    syncBatchChrome();
+    announce(`${items.length} images loaded. Batch is on — frame each one, then keep it`);
+    return;
+  }
+
   // Single mode is a replacement, not an append: the new image takes the stage
-  // and every setting stays exactly where it was (DEC-02).
+  // and every setting stays exactly where it was (DEC-04).
   if (!s.batch) {
     const replaced = s.items.length > 0;
     const kept = items[0];
     store.set({ items: [kept], activeIndex: -1 });
     activate(0);
-    if (replaced || items.length > 1) flashBatchOffer();
-    announce(items.length > 1
-      ? `Showing ${kept.file.name}. Turn on batch to keep all ${items.length}`
-      : replaced ? `Replaced with ${kept.file.name}` : `${kept.file.name} loaded`);
+    announce(replaced ? `Replaced with ${kept.file.name}` : `${kept.file.name} loaded`);
     return;
   }
 
@@ -288,15 +298,6 @@ function syncBatchChrome(): void {
   $('#batchNote').textContent = on
     ? 'Frame each image, then keep it. Turn off to go back to one.'
     : 'Frame a whole stack in one pass.';
-}
-
-// A stack arrived while batch was off — the offer is worth pointing at, and the
-// switch is where the answer lives, so that is what flashes.
-function flashBatchOffer(): void {
-  const button = $('#enableBatch');
-  button.classList.remove('just-offered');
-  void button.offsetWidth;
-  button.classList.add('just-offered');
 }
 
 // Take the output size from the picture while the size is still provisional.
