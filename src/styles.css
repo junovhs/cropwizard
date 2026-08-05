@@ -510,8 +510,11 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 }
 .history-group .stage-tool:hover:not(:disabled) { background: oklch(0.55 0.02 70 / 0.09); }
 /* The same segmented control the options panel uses, in the stage's own
-   translucent chrome: two sides, both readable, one of them lit. */
-.stage-segmented {
+   translucent chrome: two sides, both readable, one of them lit.
+   Doubled up on .segmented deliberately: the base rule's three equal columns are
+   declared further down this file, and at equal specificity that one would win
+   and leave a third, empty column hanging off the right. */
+.segmented.stage-segmented {
   grid-template-columns: auto auto;
   background: oklch(1 0 0 / 0.88);
   box-shadow: var(--shadow-small);
