@@ -65,11 +65,43 @@ function updateReadout(framing) {
   else { label.textContent = `${Math.round(ratio * 100)}% — blurry`; chip.classList.add('bad'); }
 }
 
+// ---- mode ------------------------------------------------------------------
+
+// Cropping and adjusting are two jobs on one image, so they are two modes on
+// one stage rather than two doors at the entrance: you pick after you can see
+// the picture, and you can change your mind for free.
+let mode = 'crop';
+let hasImage = false;
+
+// One place decides what is on the stage, because visibility depends on both
+// facts at once — whether there is an image, and which job you are doing.
+function syncStageChrome() {
+  const cropping = mode === 'crop';
+  $('#empty').hidden = hasImage;
+  $('#mode').hidden = !hasImage;
+  $('#adjust').hidden = !hasImage || cropping;
+  // The crop readouts describe a framing decision, so they are only true while
+  // that is the decision being made.
+  $('#readout').hidden = !hasImage || !cropping;
+  $('#hints').hidden = !hasImage || !cropping;
+  $('#fitToggle').hidden = !hasImage || !cropping;
+  $('#modeCrop').setAttribute('aria-selected', String(cropping));
+  $('#modeAdjust').setAttribute('aria-selected', String(!cropping));
+}
+
+function setMode(next) {
+  if (next === mode) return;
+  mode = next;
+  syncStageChrome();
+  announce(next === 'crop'
+    ? 'Crop. Drag to move the image under the frame'
+    : 'Adjust. The crop is left exactly as it was');
+  if (next === 'crop') canvas.focus();
+}
+
 function setChromeVisible(on) {
-  $('#empty').hidden = on;
-  $('#readout').hidden = !on;
-  $('#hints').hidden = !on;
-  $('#fitToggle').hidden = !on;
+  hasImage = on;
+  syncStageChrome();
 }
 
 // ---- true size vs fit ------------------------------------------------------
@@ -296,7 +328,7 @@ function syncSizeConfidence() {
   $('#sizeNote').classList.toggle('is-unsettled', !sizeChosen);
   $('#sizeNote').textContent = sizeChosen
     ? 'Search by name, pixels or shape.'
-    : 'Suggested size — press ⌘K to set the one you actually need.';
+    : 'Just a suggestion — click above to set the size you need.';
 }
 
 createSizePicker({
@@ -477,6 +509,13 @@ document.addEventListener('keydown', (e) => {
   const focused = document.activeElement;
   if (focused && focused.matches?.('input, select, textarea')) return;
   if (!view.hasImage()) return;
+
+  // Every key below moves the framing or the queue. None of them belongs to
+  // adjusting, and a stray arrow that quietly re-crops the image you were only
+  // trying to brighten is exactly the kind of thing that costs trust. Switching
+  // job is a labelled button on the stage, deliberately not a letter to learn.
+  if (mode !== 'crop') return;
+
   // Arrows fine-tune the framing; brackets (or j/k) move through the queue.
   // Nudging is the more frequent act, so it keeps the arrows.
   const px = e.shiftKey ? 40 : 8;
@@ -509,6 +548,8 @@ document.addEventListener('keydown', (e) => {
 new ResizeObserver(() => { view.resize(); syncFitChrome(); }).observe(stage);
 
 $('#fitToggle').addEventListener('click', toggleFit);
+$('#modeCrop').addEventListener('click', () => setMode('crop'));
+$('#modeAdjust').addEventListener('click', () => setMode('adjust'));
 
 // ---- boot ------------------------------------------------------------------
 

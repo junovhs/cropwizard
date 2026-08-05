@@ -171,6 +171,61 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 }
 .stage-toggle[aria-pressed="true"] kbd { border-color: var(--accent); }
 
+/* ---- mode switch ---- */
+
+/* Top-left, opposite the fit toggle: the two stage-mounted controls bracket the
+   image rather than crowding each other. Glassy like the rest of the stage
+   chrome, so it sits on the picture without sitting in front of it. */
+.mode {
+  position: absolute; left: 16px; top: 16px;
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(18, 22, 29, .82);
+  backdrop-filter: blur(8px);
+}
+.mode[hidden] { display: none; }
+
+.mode-tab {
+  min-height: 30px;
+  padding: 0 10px;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.mode-tab:hover:not(:disabled) { background: transparent; color: var(--ink); }
+/* The selected job is stated in ink and a filled ground, not a hairline: which
+   mode you are in should be readable from across the room. */
+.mode-tab[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ---- adjust shell ---- */
+
+/* Adjust does not take the image away — it is an image adjustment. The picture
+   stays on the canvas underneath and this panel takes the corner the crop
+   readouts vacate, so switching jobs never feels like leaving the page. */
+.adjust {
+  position: absolute; left: 16px; bottom: 16px;
+  width: min(340px, calc(100% - 32px));
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(18, 22, 29, .92);
+  backdrop-filter: blur(10px);
+}
+.adjust[hidden] { display: none; }
+.adjust-mark { width: 18px; height: 18px; color: var(--accent); }
+.adjust h2 { margin: 8px 0 6px; font-size: 15px; letter-spacing: -.02em; }
+.adjust p { margin: 0; color: var(--muted); font-size: 12.5px; }
+.adjust .adjust-keep { margin-top: 10px; color: var(--good); }
+
 .hints {
   position: absolute; right: 16px; bottom: 16px;
   display: flex; gap: 10px;
@@ -379,7 +434,6 @@ body.dragging .drop-veil { opacity: 1; }
 .size-text { display: grid; flex: 1; min-width: 0; }
 .size-text strong { font-size: 14px; }
 .size-text span { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.size-key { flex: 0 0 auto; opacity: .7; }
 
 /* The aspect-ratio chip. Its inline width/height are set in JS; transitioning
    them is what makes a size change feel like a change of shape. */

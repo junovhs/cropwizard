@@ -32,6 +32,30 @@
         </div>
       </div>
 
+      <!-- What you are doing to this image. It lives on the stage because that
+           is what it governs, and it is always on screen so neither job is a
+           thing you have to already know about to find. -->
+      <div id="mode" class="mode" role="tablist" aria-label="What to do with this image" hidden>
+        <button id="modeCrop" class="mode-tab" type="button" role="tab"
+          aria-selected="true" aria-controls="stage">
+          <span class="icon" data-icon="crop"></span>Crop
+        </button>
+        <button id="modeAdjust" class="mode-tab" type="button" role="tab"
+          aria-selected="false" aria-controls="adjust">
+          <span class="icon" data-icon="sliders"></span>Adjust
+        </button>
+      </div>
+
+      <div id="adjust" class="adjust" role="tabpanel" aria-labelledby="modeAdjust" hidden>
+        <div class="adjust-inner">
+          <span class="icon adjust-mark" data-icon="sliders"></span>
+          <h2>Adjust</h2>
+          <p>Saturation, contrast and exposure belong here. They are not built yet —
+             this is the door, not the room.</p>
+          <p class="adjust-keep">Your crop is untouched while you are in here.</p>
+        </div>
+      </div>
+
       <div id="readout" class="readout" hidden>
         <span class="chip">Cutting <strong id="cropSize">—</strong></span>
         <span id="qualityChip" class="chip good">Quality <strong id="quality">—</strong></span>
@@ -78,7 +102,6 @@
             <strong id="sizeName">Square post</strong>
             <span id="sizeDims">1080 × 1080</span>
           </span>
-          <kbd class="size-key">⌘K</kbd>
         </button>
         <p id="sizeNote" class="note">Search by name, pixels or shape.</p>
       </section>
