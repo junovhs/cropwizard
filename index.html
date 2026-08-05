@@ -37,6 +37,18 @@
       </button>
     </nav>
 
+    <!-- Batch is a mode, not a queue control, so it is chosen where modes are
+         chosen — beside the two jobs, not buried in the strip it turns on. It
+         is the same switch in both directions (DEC-04). -->
+    <div class="rail-batch">
+      <button id="enableBatch" class="nav-item batch-toggle" type="button" aria-pressed="false">
+        <span class="icon" data-icon="layers"></span>
+        <span class="nav-label">Batch</span>
+        <span id="batchState" class="batch-state">Off</span>
+      </button>
+      <p id="batchNote" class="rail-note">Frame a whole stack in one pass.</p>
+    </div>
+
     <div class="rail-foot">
       <!-- Two sentences about direct manipulation. They used to float over the
            picture; down here they stop competing with it. -->
@@ -76,7 +88,7 @@
         <div class="empty-inner">
           <span class="empty-mark icon" data-icon="image"></span>
           <h1 id="emptyTitle">Drop an image</h1>
-          <p id="emptyText">It lands straight on the stage — no questions. Set the size when you want it. Got a stack? Turn on batch below.</p>
+          <p id="emptyText">It lands straight on the stage — no questions. Set the size when you want it. Got a stack? Turn on Batch in the sidebar.</p>
           <button id="emptyAdd" class="primary" type="button"><span class="icon" data-icon="image"></span>Choose an image</button>
           <p class="empty-privacy">Nothing is uploaded. Images stay in your browser.</p>
         </div>
@@ -127,11 +139,14 @@
           <div id="progressBar"></div>
         </div>
         <span id="progressText" class="strip-count">0 / 0 framed</span>
-        <span id="batchNote" class="strip-count">One image at a time</span>
-        <button id="enableBatch" class="ghost" type="button"><span class="icon" data-icon="layers"></span>Enable batch</button>
         <button id="approveAll" class="ghost" type="button"><span class="icon" data-icon="check"></span>Frame the rest</button>
       </div>
-      <div id="stripRail" class="strip-rail"></div>
+      <div class="strip-body">
+        <div id="stripRail" class="strip-rail"></div>
+        <!-- An empty queue is not an error, it is an invitation, so it says the
+             one thing there is to do about it. -->
+        <p id="stripEmpty" class="strip-empty" hidden>Drag more images to add</p>
+      </div>
     </footer>
   </main>
 

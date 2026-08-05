@@ -18,27 +18,50 @@ export interface FilmstripOptions {
   readonly rail: HTMLElement;
   readonly bar: HTMLElement;
   readonly text: HTMLElement;
-  readonly note: HTMLElement;
+  readonly empty: HTMLElement;
   readonly approveAll: HTMLButtonElement;
-  readonly enableBatch: HTMLButtonElement;
   readonly onActivate: (index: number) => void;
   readonly onApproveAll: () => void;
-  readonly onEnableBatch: () => void;
+  readonly onAdd: () => void;
 }
 
 export interface FilmstripController {
   sync(state: AppState): void;
   scrollToActive(state: AppState): void;
   celebrate(state: AppState): void;
-  flashOffer(): void;
 }
 
 export function createFilmstrip(options: FilmstripOptions): FilmstripController {
   const {
-    root, rail, bar, text, note, approveAll, enableBatch,
-    onActivate, onApproveAll, onEnableBatch,
+    root, rail, bar, text, empty, approveAll,
+    onActivate, onApproveAll, onAdd,
   } = options;
   const cells = new Map<string, FilmstripCell>();
+
+  // The next slot in the queue, drawn as an outline rather than a picture: it
+  // is where the images you have not dropped yet will land, and it keeps the
+  // numbering going so an empty batch reads as "1 of a stack" rather than as a
+  // strip that failed to load.
+  const addCell = document.createElement('button');
+  addCell.type = 'button';
+  addCell.className = 'thumb thumb-add';
+  const addNum = document.createElement('span');
+  addNum.className = 'thumb-num';
+  const addMark = document.createElement('span');
+  addMark.className = 'thumb-add-mark';
+  addMark.setAttribute('aria-hidden', 'true');
+  addMark.textContent = '+';
+  addCell.append(addNum, addMark);
+  addCell.addEventListener('click', onAdd);
+
+  // The outline is the shape of the thing that will fill it, so it follows the
+  // output size exactly as a real thumbnail does.
+  function sizeAddCell(target: OutputTarget, index: number): void {
+    addCell.style.height = `${THUMB_H}px`;
+    addCell.style.width = `${Math.max(16, Math.round(THUMB_H * (target.w / target.h)))}px`;
+    addNum.textContent = String(index + 1);
+    addCell.setAttribute('aria-label', `Add more images — they join the queue at ${index + 1}`);
+  }
 
   function drawThumb(canvas: HTMLCanvasElement, item: CropItem, target: OutputTarget): void {
     const ratio = target.w / target.h;
@@ -90,20 +113,20 @@ export function createFilmstrip(options: FilmstripOptions): FilmstripController 
 
   function sync(state: AppState): void {
     const { items, activeIndex, target, batch } = state;
-    root.classList.toggle('is-off', !batch);
-    note.hidden = batch;
-    enableBatch.hidden = batch;
-    text.hidden = !batch;
-    approveAll.hidden = !batch;
 
+    // Batch off is not a disabled queue any more, it is no queue: the switch
+    // that brings it back lives in the rail (DEC-04), so an empty bar down here
+    // would be furniture with nothing to say.
     if (!batch) {
       for (const cell of cells.values()) cell.el.remove();
       cells.clear();
+      addCell.remove();
       bar.style.width = '0%';
       root.classList.remove('is-complete');
-      root.hidden = false;
+      root.hidden = true;
       return;
     }
+    root.hidden = false;
 
     for (const [id, cell] of cells) {
       if (!items.some((item) => item.id === id)) {
@@ -141,12 +164,18 @@ export function createFilmstrip(options: FilmstripOptions): FilmstripController 
       );
     });
 
+    // The open slot always trails the queue, so the strip is never a dead end
+    // and the count of what could still arrive is drawn rather than described.
+    sizeAddCell(target, items.length);
+    rail.append(addCell);
+    empty.hidden = items.length > 0;
+
     const done = items.filter((item) => item.approved).length;
     bar.style.width = items.length ? `${(done / items.length) * 100}%` : '0%';
     text.textContent = `${done} / ${items.length} framed`;
+    root.classList.toggle('is-empty', items.length === 0);
     root.classList.toggle('is-complete', items.length > 0 && done === items.length);
     approveAll.disabled = !items.length || done === items.length;
-    root.hidden = items.length === 0;
   }
 
   function activeCell(state: AppState): FilmstripCell | undefined {
@@ -166,13 +195,6 @@ export function createFilmstrip(options: FilmstripOptions): FilmstripController 
     cell.el.classList.add('just-approved');
   }
 
-  function flashOffer(): void {
-    root.classList.remove('just-offered');
-    void root.offsetWidth;
-    root.classList.add('just-offered');
-  }
-
   approveAll.addEventListener('click', onApproveAll);
-  enableBatch.addEventListener('click', onEnableBatch);
-  return { sync, scrollToActive, celebrate, flashOffer };
+  return { sync, scrollToActive, celebrate };
 }

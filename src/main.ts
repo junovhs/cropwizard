@@ -239,7 +239,7 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
     const kept = items[0];
     store.set({ items: [kept], activeIndex: -1 });
     activate(0);
-    if (replaced || items.length > 1) strip.flashOffer();
+    if (replaced || items.length > 1) flashBatchOffer();
     announce(items.length > 1
       ? `Showing ${kept.file.name}. Turn on batch to keep all ${items.length}`
       : replaced ? `Replaced with ${kept.file.name}` : `${kept.file.name} loaded`);
@@ -252,13 +252,51 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
   announce(`${items.length} image${items.length === 1 ? '' : 's'} added`);
 }
 
-// Batch is entered deliberately and never left by accident, so there is an on
-// and no off: the way back to one image is to drop one.
-function enableBatch(): void {
-  if (store.get().batch) return;
-  store.set({ batch: true });
+// Batch is a mode, so it is one switch that works in both directions (DEC-04).
+// Turning it off is not a way to lose work by accident: the image you are
+// looking at survives, and only the queue behind it goes.
+function setBatch(on: boolean): void {
+  const state = store.get();
+  if (state.batch === on) return;
+
+  if (on) {
+    store.set({ batch: true });
+    syncBatchChrome();
+    syncUI();
+    announce('Batch on. Drop as many images as you like');
+    return;
+  }
+
+  const kept = activeItem(state);
+  store.set({
+    batch: false,
+    items: kept ? [kept] : [],
+    activeIndex: kept ? 0 : -1,
+  });
+  syncBatchChrome();
   syncUI();
-  announce('Batch on. Drop as many images as you like');
+  announce(kept
+    ? `Batch off. Keeping ${kept.file.name}, the rest of the queue is gone`
+    : 'Batch off. One image at a time');
+}
+
+// What the rail switch says about itself, and what it promises next.
+function syncBatchChrome(): void {
+  const on = store.get().batch;
+  $('#enableBatch').setAttribute('aria-pressed', String(on));
+  $('#batchState').textContent = on ? 'On' : 'Off';
+  $('#batchNote').textContent = on
+    ? 'Frame each image, then keep it. Turn off to go back to one.'
+    : 'Frame a whole stack in one pass.';
+}
+
+// A stack arrived while batch was off — the offer is worth pointing at, and the
+// switch is where the answer lives, so that is what flashes.
+function flashBatchOffer(): void {
+  const button = $('#enableBatch');
+  button.classList.remove('just-offered');
+  void button.offsetWidth;
+  button.classList.add('just-offered');
 }
 
 // Take the output size from the picture while the size is still provisional.
@@ -307,12 +345,11 @@ const strip = createFilmstrip({
   rail: $('#stripRail'),
   bar: $('#progressBar'),
   text: $('#progressText'),
-  note: $('#batchNote'),
+  empty: $('#stripEmpty'),
   approveAll: $('#approveAll'),
-  enableBatch: $('#enableBatch'),
   onActivate: activate,
   onApproveAll: approveRest,
-  onEnableBatch: enableBatch,
+  onAdd: () => openPicker(),
 });
 
 function approve(): void {
@@ -473,6 +510,7 @@ function showState(state: AppState): void {
     setChromeVisible(false);
   }
   syncFitChrome();
+  syncBatchChrome();
   syncUI();
 }
 
@@ -583,6 +621,7 @@ document.addEventListener('keydown', (e) => {
 new ResizeObserver(() => { view.resize(); syncFitChrome(); }).observe(stage);
 
 $('#fitToggle').addEventListener('click', toggleFit);
+$('#enableBatch').addEventListener('click', () => setBatch(!store.get().batch));
 $('#modeCrop').addEventListener('click', () => setMode('crop'));
 $('#modeAdjust').addEventListener('click', () => setMode('adjust'));
 
@@ -590,6 +629,8 @@ $('#modeAdjust').addEventListener('click', () => setMode('adjust'));
 
 paintIcons();
 setChromeVisible(false);
+syncBatchChrome();
+syncUI();
 const boot = store.get().target;
 applyTarget({ w: boot.w, h: boot.h, name: boot.label });
 syncSizeConfidence();
