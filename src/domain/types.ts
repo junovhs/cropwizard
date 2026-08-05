@@ -41,6 +41,12 @@ export interface SavedSize extends Dimensions {
   readonly name: string;
 }
 
+/** A size kept on the top bar. Identified by its pixels, not by its name. */
+export interface PinnedSize extends Dimensions {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface Preset extends Dimensions {
   readonly id: string;
   readonly group: string;

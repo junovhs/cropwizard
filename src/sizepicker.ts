@@ -2,7 +2,9 @@
 
 import { search, ratioLabel } from './search.js';
 import { loadSaved, addSaved, renameSaved, removeSaved } from './saved.js';
-import type { Dimensions, SavedSize, SizeResult } from './domain/types.js';
+import { loadPinned, isPinned, togglePinned } from './pinned.js';
+import { icon } from './icons.js';
+import type { Dimensions, PinnedSize, SavedSize, SizeResult } from './domain/types.js';
 
 const RECENTS_KEY = 'cropwizard.recents';
 const MAX_RECENTS = 5;
@@ -18,6 +20,8 @@ export interface SizePickerOptions {
   readonly trigger: HTMLButtonElement;
   readonly getTemplate?: () => Dimensions | null;
   readonly onPick: (result: SizeResult) => void;
+  /** Fires whenever a row is pinned or unpinned, so the top bar can redraw. */
+  readonly onPinsChange?: (pins: readonly PinnedSize[]) => void;
 }
 
 export interface SizePickerController {
@@ -63,13 +67,24 @@ function inscribe(iw: number, ih: number, ratio: number): Dimensions {
     : { w: iw, h: Math.round(iw / ratio) };
 }
 
-function rowAction(label: string, glyph: string, onRun: () => void): HTMLButtonElement {
+// Row actions are glyphs by tradition (☆ ✎ ✕), but a pin is a real icon, so
+// the mark can be either a character or a drawn one.
+// `pressed` is left out by the actions that simply do a thing, and given by the
+// ones that are a state you are turning on and off.
+function rowAction(
+  label: string,
+  mark: string | Node,
+  onRun: () => void,
+  pressed?: boolean,
+): HTMLButtonElement {
   const el = document.createElement('button');
   el.type = 'button';
-  el.className = 'row-action';
+  el.className = pressed ? 'row-action is-on' : 'row-action';
   el.title = label;
   el.setAttribute('aria-label', label);
-  el.textContent = glyph;
+  if (pressed !== undefined) el.setAttribute('aria-pressed', String(pressed));
+  if (typeof mark === 'string') el.textContent = mark;
+  else el.append(mark);
   el.addEventListener('mousedown', (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -79,11 +94,12 @@ function rowAction(label: string, glyph: string, onRun: () => void): HTMLButtonE
 }
 
 export function createSizePicker(options: SizePickerOptions): SizePickerController {
-  const { root, input, list, trigger, getTemplate, onPick } = options;
+  const { root, input, list, trigger, getTemplate, onPick, onPinsChange } = options;
   let rows: SizeResult[] = [];
   let cursor = 0;
   let recents = loadRecents();
   let saved: SavedSize[] = loadSaved();
+  let pins: PinnedSize[] = loadPinned();
   let template: Dimensions | null = null;
   let naming: NamingState | null = null;
 
@@ -228,6 +244,20 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       appendRatioControl(row, result);
       row.append(dims);
 
+      // Any size can be pinned, because the one you reach for every day is as
+      // likely to be a preset or a raw pixel pair as something you saved.
+      const held = isPinned(pins, result.w, result.h);
+      row.append(rowAction(
+        held ? 'Unpin from the top bar' : 'Pin to the top bar',
+        icon('pin'),
+        () => {
+          pins = togglePinned(result.name, result.w, result.h);
+          onPinsChange?.(pins);
+          render();
+        },
+        held,
+      ));
+
       if (result.kind === 'custom') {
         row.append(rowAction('Save this size', '☆', () => beginNaming({ w: result.w, h: result.h }, '')));
       } else if (result.kind === 'saved' && result.savedId) {
@@ -286,6 +316,7 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     root.hidden = false;
     naming = null;
     saved = loadSaved();
+    pins = loadPinned();
     template = getTemplate?.() ?? null;
     const shapeHint = root.querySelector<HTMLElement>('#shapeHint');
     if (shapeHint) shapeHint.hidden = !template;

@@ -11,9 +11,10 @@ import { createExportPanel, type ExportPanelController } from './presentation/ex
 import { acceptFrame, fitFrameToTarget, suggestFrame, targetKey, useWholeImage, wholeFrame } from './application/framing.js';
 import { decodeImage } from './infrastructure/image-decoder.js';
 import { requiredElement, requiredElements } from './infrastructure/dom.js';
+import { loadPinned, pinId, removePinned } from './pinned.js';
 import { createHistory } from './history.js';
 import type {
-  AppState, CropItem, Framing, OutputTarget, SizeResult,
+  AppState, CropItem, Framing, OutputTarget, PinnedSize, SizeResult,
 } from './domain/types.js';
 
 const $ = <T extends Element = HTMLElement>(selector: string): T => requiredElement<T>(selector);
@@ -476,6 +477,62 @@ function showTarget(target: OutputTarget): void {
   swatch.style.height = `${w >= h ? Math.max(6, (long * h) / w) : long}px`;
 }
 
+// ---- pinned sizes ----------------------------------------------------------
+
+// The size picker is a good answer to "what size?" and a poor one to "the same
+// size as the last nine times". A pin is the second question's answer: the
+// sizes this person actually uses, sitting in the top bar where a decision that
+// is already made belongs.
+function renderPins(list: readonly PinnedSize[] = loadPinned()): void {
+  const host = $('#pins');
+  host.textContent = '';
+  host.hidden = list.length === 0;
+
+  for (const pin of list) {
+    const chip = document.createElement('span');
+    chip.className = 'pin-chip';
+    chip.dataset.pin = pin.id;
+
+    // Two acts on one chip: use this size, or stop keeping it. The big half is
+    // the one you want, and the ✕ has to be deliberate to hit.
+    const use = document.createElement('button');
+    use.type = 'button';
+    use.className = 'pin-use';
+    const name = document.createElement('strong');
+    name.textContent = pin.name;
+    const dims = document.createElement('span');
+    dims.textContent = `${pin.w} × ${pin.h}`;
+    use.append(name, dims);
+    use.title = `${pin.name} — ${pin.w} × ${pin.h}`;
+    use.addEventListener('click', () => {
+      sizeChosen = true;
+      applyTarget({ w: pin.w, h: pin.h, name: pin.name });
+      syncSizeConfidence();
+    });
+
+    const drop = document.createElement('button');
+    drop.type = 'button';
+    drop.className = 'pin-drop';
+    drop.textContent = '✕';
+    drop.title = `Unpin ${pin.name}`;
+    drop.setAttribute('aria-label', `Unpin ${pin.name}`);
+    drop.addEventListener('click', () => renderPins(removePinned(pin.id)));
+
+    chip.append(use, drop);
+    host.append(chip);
+  }
+  markActivePin();
+}
+
+// A pin is not a mode, but it is worth saying which one you are looking at.
+function markActivePin(): void {
+  const { target } = store.get();
+  const active = pinId(target.w, target.h);
+  for (const chip of $('#pins').querySelectorAll<HTMLElement>('.pin-chip')) {
+    chip.classList.toggle('is-active', chip.dataset.pin === active);
+  }
+}
+
 function applyTarget({ w, h, name }: TargetSelection): void {
   if (!(w > 0 && h > 0)) return;
   store.transact((current) => {
@@ -486,6 +543,7 @@ function applyTarget({ w, h, name }: TargetSelection): void {
   syncFitChrome();
 
   showTarget({ w, h, label: name });
+  markActivePin();
 
   // Every queued crop follows the new shape immediately, so the filmstrip is
   // always a truthful preview of what would be exported right now.
@@ -525,6 +583,7 @@ createSizePicker({
     const item = activeItem();
     return item ? { w: item.image.naturalWidth, h: item.image.naturalHeight } : null;
   },
+  onPinsChange: renderPins,
   onPick: (r: SizeResult) => {
     sizeChosen = true;
     applyTarget({ w: r.w, h: r.h, name: r.name });
@@ -709,6 +768,7 @@ $('#modeAdjust').addEventListener('click', () => setMode('adjust'));
 // ---- boot ------------------------------------------------------------------
 
 paintIcons();
+renderPins();
 setChromeVisible(false);
 syncBatchChrome();
 syncUI();

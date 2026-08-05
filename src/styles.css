@@ -343,6 +343,76 @@ button.ghost:hover:not(:disabled) { background: oklch(0.55 0.02 70 / 0.07); colo
 .spacer { flex: 1; }
 .top-actions { display: flex; gap: 8px; }
 
+/* ---- pinned sizes ----
+   A decision already made, so it is a chip rather than a control: small, quiet,
+   and one click from being applied. */
+
+.pins {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  max-width: min(52%, 620px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 3px;
+  scrollbar-width: thin;
+}
+.pins[hidden] { display: none; }
+
+.pin-chip {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: oklch(1 0 0 / 0.8);
+  box-shadow: var(--shadow-small);
+  transition: border-color .15s var(--ease), background .15s var(--ease);
+}
+/* The size currently on the frame — the app's one selection colour again. */
+.pin-chip.is-active {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+}
+
+.pin-use {
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 4px 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.pin-use strong { color: var(--ink); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pin-use span {
+  color: var(--ink-4);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pin-use:hover:not(:disabled) { background: oklch(0.55 0.02 70 / 0.07); }
+.pin-chip.is-active .pin-use strong { color: var(--accent-2); }
+.pin-chip.is-active .pin-use span { color: var(--accent-2); }
+.pin-chip.is-active .pin-use:hover:not(:disabled) { background: oklch(1 0 0 / 0.45); }
+
+/* Removing a pin is rarer than using one, so it is the smaller half and it
+   does not colour up until you are actually on it. */
+.pin-drop {
+  min-height: 30px;
+  min-width: 24px;
+  padding: 0 8px 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-4);
+  font-size: 11px;
+  box-shadow: none;
+}
+.pin-drop:hover:not(:disabled) { background: var(--danger); color: #fff; }
+
 /* ---- stage ---- */
 
 .stage-col {
@@ -1191,6 +1261,11 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
 .picker-row:hover .row-action,
 .picker-row[aria-selected="true"] .row-action { opacity: 1; }
 .row-action:hover:not(:disabled) { background: oklch(0.55 0.02 70 / 0.1); color: var(--ink); }
+.row-action .icon { width: 14px; height: 14px; }
+/* Already pinned: the state has to be visible without hovering the row, or you
+   cannot tell what is on the top bar without going to look. */
+.row-action.is-on { opacity: 1; color: var(--accent); }
+.row-action.is-on:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-2); }
 
 .picker-foot {
   display: flex; gap: 14px; flex-wrap: wrap;
@@ -1245,6 +1320,10 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
     pointer-events: none;
   }
   .topbar .top-actions { pointer-events: auto; }
+  /* The top bar here is a narrow overlay sharing its row with the wordmark and
+     Add images. A pin chip you cannot read the name of is worse than no chip,
+     so the shortcut steps aside and the size picker does the job. */
+  .topbar .pins { display: none; }
   /* The filename has no room beside the wordmark; the stage shows the image and
      the sheet names the file, so nothing is actually lost. */
   .topbar .file-id { display: none; }
