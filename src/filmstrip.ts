@@ -54,8 +54,11 @@ export function createFilmstrip(options: FilmstripOptions): FilmstripController 
   addCell.append(addNum, addMark);
   addCell.addEventListener('click', onAdd);
 
-  // The outline is the shape of the thing that will fill it, so it follows the
-  // output size exactly as a real thumbnail does.
+  /**
+   * Shape the open slot to `target` and number it `index + 1`. The outline is
+   * the shape of the thing that will fill it, so it follows the output size
+   * exactly as a real thumbnail does.
+   */
   function sizeAddCell(target: OutputTarget, index: number): void {
     addCell.style.height = `${THUMB_H}px`;
     addCell.style.width = `${Math.max(16, Math.round(THUMB_H * (target.w / target.h)))}px`;
