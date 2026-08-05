@@ -91,7 +91,7 @@ export function createSizePicker({
     list.textContent = '';
     if (naming) { renderNaming(); return; }
 
-    rows = search(input.value, recents, saved);
+    rows = search(input.value, recents, saved, template);
 
     // The loaded image's own size is an answer to the same question, so it is a
     // row like any other — reachable by keyboard and showing its real numbers.

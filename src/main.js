@@ -346,6 +346,28 @@ createSizePicker({
   onPick: (r) => {
     sizeChosen = true;
     applyTarget({ w: r.w, h: r.h, name: r.name });
+    // "Whole image" is a promise about the result, not just a size, so the crop
+    // is stated outright rather than arrived at. The obvious route — set the
+    // target, then fill the frame — cannot be trusted here: filling measures
+    // against the frame rect, and that rect spends the next few hundred ms
+    // animating out of the old shape, so a fill lands on an aspect belonging to
+    // neither size and the file ships with bars down two edges. Export reads
+    // item.frame, so naming the whole rectangle is both the truth and the thing
+    // written to disk, with no animation to wait on.
+    if (r.kind === 'whole') {
+      const item = activeItem();
+      if (item) {
+        const iw = item.image.naturalWidth;
+        const ih = item.image.naturalHeight;
+        item.frame = { cx: iw / 2, cy: ih / 2, cropW: iw, cropH: ih };
+        // Chosen by name, so it is a decision: a later size change reshapes it
+        // around this rather than re-guessing from scratch.
+        item.auto = false;
+        item.framedFor = `${r.w}x${r.h}`;
+        view.setImage(item.image, item.frame);
+      }
+      announce(`Whole image at ${r.w} by ${r.h} pixels. Nothing cropped`);
+    }
     syncSizeConfidence();
   },
 });

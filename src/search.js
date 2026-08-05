@@ -139,7 +139,22 @@ function parseRatio(q) {
  * @param {string[]} recents preset ids, most recent first
  * @returns {Array} ranked rows, best first
  */
-export function search(raw, recents = [], saved = []) {
+/**
+ * The whole of `image`, scaled to sit inside `bound` with nothing cropped and
+ * nothing padded. Since the result carries the image's own aspect, filling the
+ * frame with it shows every pixel — which is what a plain resize means. Only
+ * the bound the image actually runs into is honoured exactly; the other comes
+ * out smaller, because that is what preserving the shape costs.
+ */
+export function wholeImageInside(image, bound) {
+  const scale = Math.min(bound.w / image.w, bound.h / image.h);
+  return {
+    w: Math.max(1, Math.round(image.w * scale)),
+    h: Math.max(1, Math.round(image.h * scale)),
+  };
+}
+
+export function search(raw, recents = [], saved = [], image = null) {
   const q = norm(raw || '');
 
   if (!q) {
@@ -173,6 +188,21 @@ export function search(raw, recents = [], saved = []) {
       if (p.w === dims.w && p.h === dims.h) push({ ...presetRow(p), section: 'Exact match' });
     }
     push({ ...row('custom', `${dims.w} × ${dims.h}`, 'Exact pixels', dims.w, dims.h), section: 'Exact match' });
+
+    // Typing a size is ambiguous: it can mean "cut this shape out of it" or
+    // "make the whole thing about this big". The first is the row above and the
+    // only one that existed; this is the second, offered beside it so a plain
+    // resize never requires understanding the frame. Skipped when the image
+    // already has that shape, because then the two rows are the same act.
+    if (image) {
+      const whole = wholeImageInside(image, dims);
+      if (whole.w !== dims.w || whole.h !== dims.h) {
+        push({
+          ...row('whole', 'Whole image', `Nothing cropped — fits inside ${dims.w} × ${dims.h}`, whole.w, whole.h),
+          section: 'Exact match',
+        });
+      }
+    }
   }
 
   // 2. A ratio resolves to concrete pixels, then to every preset that shape.
