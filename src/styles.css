@@ -4,8 +4,16 @@
   --chrome: #12161d;
   --panel: #161b24;
   --raised: #1d2430;
-  --line: #262e3b;
-  --line-soft: #1c232e;
+  /* Boundaries that carry meaning — where a button ends, where the panel meets
+     the stage. These were #262e3b and read at 1.26:1 on the panel, so the
+     interface had no visible seams at all and every surface ran into the next.
+     Held to the 3:1 of WCAG 1.4.11 now; `node tools/contrast.mjs` proves it. */
+  --line: #5f6f85;
+  --line-hover: #7d8da3;
+  /* Rhythm between sections inside one panel. Decorative, so deliberately below
+     the boundary floor: those sections already sit inside the panel's own edge,
+     and a divider as loud as a button outline flattens the hierarchy. */
+  --line-soft: #333d4d;
   --ink: #e9edf4;
   --muted: #8c97a9;
   --accent: #5a9dff;
@@ -48,7 +56,7 @@ button {
   cursor: pointer;
   transition: transform .12s var(--ease), background .12s, border-color .12s;
 }
-button:hover:not(:disabled) { background: #242c3a; border-color: #33404f; }
+button:hover:not(:disabled) { background: #242c3a; border-color: var(--line-hover); }
 button:active:not(:disabled) { transform: scale(.97); }
 button:disabled { opacity: .4; cursor: not-allowed; }
 /* `display` on the element rule outranks the UA rule for [hidden], so restate it. */
@@ -355,11 +363,11 @@ body.dragging .drop-veil { opacity: 1; }
 }
 /* A size nobody chose yet. It has to read as an open question without reading
    as an error — a dashed edge says "not settled" where amber would say "wrong".
-   Dashed only works if you can see it: 3.37:1 on the panel, over the 3:1 WCAG
-   asks of a non-text boundary, where the standard --line would sit at 1.26. */
+   It takes the brighter boundary so the unsettled state stands a step in front
+   of every settled edge around it, rather than relying on the dashes alone. */
 .size-button.is-provisional {
   border-style: dashed;
-  border-color: #5f6f85;
+  border-color: var(--line-hover);
 }
 .size-button.is-provisional .swatch { border-style: dashed; background: none; }
 
@@ -521,7 +529,7 @@ body.dragging .drop-veil { opacity: 1; }
   display: flex; align-items: center; gap: 12px;
   margin: 0 18px 12px;
   padding: 0 16px;
-  border: 1px solid #536078;
+  border: 1px solid var(--line-hover);
   border-radius: 11px;
   background: #0b0f16;
   box-shadow: 0 0 0 3px rgba(116, 145, 255, .12);
