@@ -107,11 +107,23 @@
           </span>
         </button>
         <p id="sizeNote" class="note">Search by name, pixels or shape.</p>
+
+        <!-- The size is the decision; the multiplier is how many pixels of it
+             you want. Retina exports are the same crop, twice as dense. -->
+        <div class="scale-row">
+          <span id="scaleLabel" class="scale-label">Export at</span>
+          <div id="scaleGroup" class="segmented" role="radiogroup" aria-labelledby="scaleLabel">
+            <button type="button" role="radio" data-scale="1" aria-checked="true">1×</button>
+            <button type="button" role="radio" data-scale="2" aria-checked="false">2×</button>
+            <button type="button" role="radio" data-scale="4" aria-checked="false">4×</button>
+          </div>
+        </div>
+        <p id="scaleNote" class="note"></p>
       </section>
 
       <section class="block">
         <h2><span class="icon" data-icon="image"></span>Format</h2>
-        <div class="segmented" role="radiogroup" aria-label="File format">
+        <div id="formatGroup" class="segmented" role="radiogroup" aria-label="File format">
           <button type="button" role="radio" data-format="png" aria-checked="true">PNG</button>
           <button type="button" role="radio" data-format="jpeg" aria-checked="false">JPEG</button>
           <button type="button" role="radio" data-format="webp" aria-checked="false">WebP</button>

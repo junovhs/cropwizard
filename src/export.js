@@ -11,6 +11,18 @@ export const FORMATS = {
 
 export const DEFAULT_TEMPLATE = '{name}-{w}x{h}';
 
+// How many pixels of the chosen size to actually write. The size is the
+// decision; the multiplier is only density, so it is applied once — here — and
+// everything downstream (render, filename tokens, archive name) reads the
+// scaled size rather than multiplying again.
+export const SCALES = [1, 2, 4];
+
+export const scaledTarget = (target, scale = 1) => ({
+  ...target,
+  w: Math.max(1, Math.round(target.w * scale)),
+  h: Math.max(1, Math.round(target.h * scale)),
+});
+
 /**
  * Render one item's framing and adjustment at exactly the target pixel size.
  * Large reductions are done in halving steps: a single drawImage that shrinks
@@ -128,11 +140,12 @@ function unique(names) {
  * @returns {Promise<Array<{name: string, blob: Blob}>>}
  */
 export async function buildFiles(items, target, options, onProgress) {
-  const { format, quality, template, label } = options;
+  const { format, quality, template, label, scale } = options;
+  const out = scaledTarget(target, scale);
   const files = [];
 
   for (const [index, item] of items.entries()) {
-    const canvas = renderItem(item, target, format);
+    const canvas = renderItem(item, out, format);
     const blob = await encode(canvas, format, quality);
     // Name the file after what was actually produced. A browser that quietly
     // substitutes PNG for an unsupported type must not yield a lying extension.
@@ -140,7 +153,7 @@ export async function buildFiles(items, target, options, onProgress) {
     files.push({
       name: expandName(template, {
         name: item.name, index, total: items.length,
-        w: target.w, h: target.h, ext, label,
+        w: out.w, h: out.h, ext, label,
       }),
       blob,
     });
@@ -174,8 +187,10 @@ export async function exportAll(items, target, options, onProgress) {
   }
   const zip = await makeZip(files);
   // The archive is named after the product first so a folder of exports sorts
-  // together; the size label, when there is one, follows it.
-  const filename = `${sanitize(`cropwizard ${options.label || ''}`)}-${target.w}x${target.h}.zip`;
+  // together; the size label, when there is one, follows it. The size named is
+  // the size inside — what was written, not what was asked for.
+  const out = scaledTarget(target, options.scale);
+  const filename = `${sanitize(`cropwizard ${options.label || ''}`)}-${out.w}x${out.h}.zip`;
   download(zip, filename);
   return { filename, count: files.length };
 }

@@ -478,6 +478,9 @@ body.dragging .drop-veil { opacity: 1; }
    so it is not incidental grey. #b8c2d1 is 9.6:1 on the panel — AAA — against
    --muted's 5.85:1, which is legible but recedes exactly when it shouldn't. */
 .note.is-unsettled { color: #b8c2d1; }
+/* Asking for more pixels than the crop holds is the one case where a bigger
+   file is a worse picture, so it is said in the colour of a caution. */
+.note.is-stretched { color: var(--warn); }
 
 .size-text { display: grid; flex: 1; min-width: 0; }
 .size-text strong { font-size: 14px; }
@@ -515,6 +518,13 @@ body.dragging .drop-veil { opacity: 1; }
 }
 .segmented button:hover { background: #2a3444; color: var(--ink); }
 .segmented button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); }
+
+/* The multiplier sits under the size it multiplies, reading as one sentence:
+   "Output size … export at 2×". Its chips are the format chips, narrower. */
+.scale-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.scale-label { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
+.scale-row .segmented { flex: 1; min-width: 0; }
+.scale-row .segmented button { min-height: 26px; font-variant-numeric: tabular-nums; }
 
 .quality-row { display: flex; align-items: center; gap: 10px; margin-top: 11px; }
 .quality-row[hidden] { display: none; }

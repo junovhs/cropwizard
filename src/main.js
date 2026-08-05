@@ -5,7 +5,7 @@ import { createViewfinder } from './viewfinder.js';
 import { createSizePicker } from './sizepicker.js';
 import { createFilmstrip } from './filmstrip.js';
 import { autoFrame, refit } from './autoframe.js';
-import { FORMATS, DEFAULT_TEMPLATE, expandName, exportAll } from './export.js';
+import { FORMATS, DEFAULT_TEMPLATE, expandName, exportAll, scaledTarget } from './export.js';
 import { createAdjustPanel, neutral } from './adjust.js';
 import { paintIcons } from './icons.js';
 
@@ -56,8 +56,12 @@ function updateReadout(framing) {
   $('#cropSize').textContent = `${w} × ${h}`;
 
   // How much real detail is behind each output pixel. Below 1.0 we are
-  // enlarging, which is the only thing that actually costs quality here.
-  const ratio = Math.min(framing.cropW / target.w, framing.cropH / target.h);
+  // enlarging, which is the only thing that actually costs quality here. The
+  // export multiplier is part of that sum: at 4x the file wants four times the
+  // pixels in each direction, and the chip has to say so while it can still be
+  // changed for free.
+  const out = scaledTarget(target, options.scale);
+  const ratio = Math.min(framing.cropW / out.w, framing.cropH / out.h);
   const chip = $('#qualityChip');
   const label = $('#quality');
   chip.className = 'chip';
@@ -298,7 +302,9 @@ function activate(index) {
 // always refreshed together.
 function syncUI() {
   strip.sync(store.get());
-  refreshExport();
+  // The scale row states the pixels that would be written right now, so it is
+  // refreshed with everything else that describes the pending export.
+  syncScale();
 }
 
 const strip = createFilmstrip({
@@ -438,7 +444,7 @@ createSizePicker({
 
 // ---- export ----------------------------------------------------------------
 
-const options = { format: 'png', quality: 0.86, template: DEFAULT_TEMPLATE };
+const options = { format: 'png', quality: 0.86, template: DEFAULT_TEMPLATE, scale: 1 };
 let exporting = false;
 
 // ---- file names ------------------------------------------------------------
@@ -487,9 +493,10 @@ function refreshExport() {
   // nothing loaded it still has to demonstrate the naming, so it stands in a
   // plausible name rather than going blank.
   const sample = items[Math.max(0, store.get().activeIndex)] || items[0];
+  const out = scaledTarget(target, options.scale);
   $('#namePreview').textContent = expandName(options.template, {
     name: sample ? sample.name : 'photo', index: 0, total: Math.max(count, 1),
-    w: target.w, h: target.h, ext: FORMATS[options.format].ext, label: target.label,
+    w: out.w, h: out.h, ext: FORMATS[options.format].ext, label: target.label,
   });
 
   const pending = items.filter((i) => !i.approved).length;
@@ -502,15 +509,51 @@ function refreshExport() {
 
 function setFormat(format) {
   options.format = format;
-  for (const b of $$('.segmented button')) {
+  for (const b of $$('#formatGroup button')) {
     b.setAttribute('aria-checked', String(b.dataset.format === format));
   }
   $('#qualityRow').hidden = !FORMATS[format].lossy;
   refreshExport();
 }
 
-for (const button of $$('.segmented button')) {
+for (const button of $$('#formatGroup button')) {
   button.addEventListener('click', () => setFormat(button.dataset.format));
+}
+
+// ---- export scale ----------------------------------------------------------
+
+// The multiplier is not a second size question: it is the same crop written at
+// more pixels. So it says the number it will actually write, and it says plainly
+// when it is asking for more detail than the crop has to give — the one case
+// where a bigger file is a worse picture.
+function syncScale() {
+  const { target } = store.get();
+  const out = scaledTarget(target, options.scale);
+  for (const b of $$('#scaleGroup button')) {
+    b.setAttribute('aria-checked', String(+b.dataset.scale === options.scale));
+  }
+
+  const framing = view.hasImage() ? view.getFraming() : null;
+  const stretched = framing && (framing.cropW < out.w - 0.5 || framing.cropH < out.h - 0.5);
+  $('#scaleNote').classList.toggle('is-stretched', !!stretched);
+  $('#scaleNote').textContent = stretched
+    ? `${out.w} × ${out.h} — bigger than the crop holds, so it will soften.`
+    : `Writes ${out.w} × ${out.h}.`;
+
+  updateReadout(framing);
+  refreshExport();
+}
+
+function setScale(scale) {
+  if (scale === options.scale) return;
+  options.scale = scale;
+  syncScale();
+  const { w, h } = scaledTarget(store.get().target, scale);
+  announce(`${scale} times. Exports at ${w} by ${h} pixels`);
+}
+
+for (const button of $$('#scaleGroup button')) {
+  button.addEventListener('click', () => setScale(+button.dataset.scale));
 }
 $('#qualityInput').addEventListener('input', (e) => {
   options.quality = +e.target.value / 100;
