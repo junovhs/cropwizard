@@ -226,9 +226,11 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
 
   function draw(): void {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Cleared rather than filled: the surround is the workspace's own paper,
+    // showing through from the stage's CSS background. Painting a colour here
+    // meant the canvas carried a second palette that had to be remembered
+    // separately every time the theme moved — and didn't get remembered.
     ctx.clearRect(0, 0, vw, vh);
-    ctx.fillStyle = '#0b0e13';
-    ctx.fillRect(0, 0, vw, vh);
     if (!image) return;
 
     const w = image.naturalWidth * scale.v;
@@ -307,7 +309,9 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     // Snap acknowledgement: a crosshair that blooms and dies.
     const p = snapPulse.value;
     if (p > 0.01) {
-      ctx.strokeStyle = `rgba(120,190,255,${0.9 * p})`;
+      // The product accent, so a snap is acknowledged in the same colour every
+      // other selection in the app uses.
+      ctx.strokeStyle = `rgba(186, 88, 44, ${0.9 * p})`;
       ctx.lineWidth = 1;
       const mx = f.x + f.w / 2, my = f.y + f.h / 2, r = 14 + 22 * (1 - p);
       ctx.beginPath();

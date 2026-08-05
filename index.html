@@ -3,22 +3,70 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#faf7f2">
 <title>cropwizard — frame it once, ship it everywhere</title>
 <link rel="stylesheet" href="src/styles.css">
 </head>
 <body>
+<!-- Drives the mobile options sheet with no script: the panel is a bottom sheet
+     under 900px and a permanent right rail above it. Never read by the app. -->
+<input id="panelToggle" class="sr-only sheet-toggle" type="checkbox">
+
 <div class="app">
+  <!-- A grid child in its own right, so it can sit above the rail on desktop and
+       in the top bar on mobile without existing twice in the markup. -->
+  <div class="brand">
+    <span class="icon brand-mark" data-icon="crop"></span>
+    <span class="brand-word"><b>crop</b><i>wizard</i></span>
+  </div>
+
+  <!-- ---- left rail: the two jobs you can do to an image ---- -->
+  <aside class="rail">
+    <!-- The two modes were stage-mounted tabs. They are the app's only real
+         navigation, so they read as navigation. -->
+    <nav id="mode" class="nav" role="tablist" aria-label="What to do with this image">
+      <button id="modeCrop" class="nav-item" type="button" role="tab"
+        aria-selected="true" aria-controls="stage">
+        <span class="icon" data-icon="crop"></span>
+        <span class="nav-label">Crop<span class="nav-label-more"> &amp; Resize</span></span>
+      </button>
+      <button id="modeAdjust" class="nav-item" type="button" role="tab"
+        aria-selected="false" aria-controls="adjust">
+        <span class="icon" data-icon="sliders"></span>
+        <span class="nav-label">Adjust</span>
+      </button>
+    </nav>
+
+    <div class="rail-foot">
+      <!-- Two sentences about direct manipulation. They used to float over the
+           picture; down here they stop competing with it. -->
+      <div id="hints" class="hints" hidden>
+        <span class="hints-label">Need help?</span>
+        <span>Drag to move</span>
+        <span>Scroll to zoom</span>
+      </div>
+    </div>
+
+    <!-- Mobile only: the right panel has nowhere to live, so it becomes a sheet. -->
+    <label class="sheet-open" for="panelToggle">
+      <span class="icon" data-icon="settings"></span>Options<span class="sheet-open-more"> &amp; export</span>
+    </label>
+  </aside>
+
+  <!-- ---- top bar ---- -->
   <header class="topbar">
-    <div class="brand"><span class="icon brand-mark" data-icon="crop"></span><b>crop</b><i>wizard</i></div>
-    <div id="filename" class="filename"></div>
+    <div class="file-id">
+      <div id="filename" class="filename"></div>
+      <div id="fileDims" class="file-dims"></div>
+    </div>
     <div class="spacer"></div>
     <div class="top-actions">
-      <button id="add" type="button"><span class="icon" data-icon="upload"></span>Add images</button>
+      <button id="add" class="secondary" type="button"><span class="icon" data-icon="upload"></span>Add images</button>
     </div>
   </header>
 
-  <main class="workspace">
-   <div class="stage-col">
+  <!-- ---- stage ---- -->
+  <main class="stage-col">
     <section id="stage" class="stage" aria-label="Framing area">
       <canvas id="canvas" tabindex="0"
         aria-label="Viewfinder. The crop frame is fixed at the centre. Drag to move the image beneath it, scroll to zoom."></canvas>
@@ -26,24 +74,12 @@
 
       <div id="empty" class="empty">
         <div class="empty-inner">
+          <span class="empty-mark icon" data-icon="image"></span>
           <h1 id="emptyTitle">Drop an image</h1>
           <p id="emptyText">It lands straight on the stage — no questions. Set the size when you want it. Got a stack? Turn on batch below.</p>
           <button id="emptyAdd" class="primary" type="button"><span class="icon" data-icon="image"></span>Choose an image</button>
+          <p class="empty-privacy">Nothing is uploaded. Images stay in your browser.</p>
         </div>
-      </div>
-
-      <!-- What you are doing to this image. It lives on the stage because that
-           is what it governs, and it is always on screen so neither job is a
-           thing you have to already know about to find. -->
-      <div id="mode" class="mode" role="tablist" aria-label="What to do with this image" hidden>
-        <button id="modeCrop" class="mode-tab" type="button" role="tab"
-          aria-selected="true" aria-controls="stage">
-          <span class="icon" data-icon="crop"></span>Crop
-        </button>
-        <button id="modeAdjust" class="mode-tab" type="button" role="tab"
-          aria-selected="false" aria-controls="adjust">
-          <span class="icon" data-icon="sliders"></span>Adjust
-        </button>
       </div>
 
       <div id="adjust" class="adjust" role="tabpanel" aria-labelledby="modeAdjust" hidden>
@@ -66,20 +102,23 @@
         <span id="scaleChip" class="chip" hidden></span>
       </div>
 
-      <button id="fitToggle" class="stage-toggle" type="button" aria-pressed="false" hidden>
-        <span class="icon" data-icon="maximize"></span><span id="fitLabel">Fit to stage</span>
-      </button>
-
-      <!-- Two plain sentences about direct manipulation. The letter shortcuts
-           that used to be listed here still work, but advertising them cost
-           more room than they were worth and read as a cheat sheet; the ones
-           that matter are getting real buttons instead. -->
-      <div id="hints" class="hints" hidden>
-        <span>Drag to move</span>
-        <span>Scroll to zoom</span>
+      <!-- Stage tools, top right: step back and forth through your edits, and
+           choose whether the frame is shown at its real size. -->
+      <div class="stage-tools">
+        <div class="history-group">
+          <button id="undo" class="stage-tool" type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+            <span class="icon" data-icon="undo"></span>
+          </button>
+          <button id="redo" class="stage-tool" type="button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
+            <span class="icon" data-icon="redo"></span>
+          </button>
+        </div>
+        <button id="fitToggle" class="stage-tool stage-toggle" type="button" aria-pressed="false" hidden>
+          <span class="icon" data-icon="maximize"></span><span id="fitLabel">Fit to stage</span>
+        </button>
       </div>
 
-      <div class="drop-veil">Drop to load — crop it, or just resize it</div>
+      <div class="drop-veil"><span>Drop to load — crop it, or just resize it</span></div>
     </section>
 
     <footer id="strip" class="strip is-off" aria-label="Image queue">
@@ -94,73 +133,79 @@
       </div>
       <div id="stripRail" class="strip-rail"></div>
     </footer>
-   </div>
-
-    <aside class="panel" aria-label="Options">
-      <section class="block">
-        <h2><span class="icon" data-icon="crop"></span>Output size</h2>
-        <button id="sizeButton" class="size-button" type="button" aria-haspopup="dialog">
-          <span id="sizeSwatch" class="swatch" aria-hidden="true"></span>
-          <span class="size-text">
-            <strong id="sizeName">Square post</strong>
-            <span id="sizeDims">1080 × 1080</span>
-          </span>
-        </button>
-        <p id="sizeNote" class="note">Search by name, pixels or shape.</p>
-
-        <!-- The size is the decision; the multiplier is how many pixels of it
-             you want. Retina exports are the same crop, twice as dense. -->
-        <div class="scale-row">
-          <span id="scaleLabel" class="scale-label">Export at</span>
-          <div id="scaleGroup" class="segmented" role="radiogroup" aria-labelledby="scaleLabel">
-            <button type="button" role="radio" data-scale="1" aria-checked="true">1×</button>
-            <button type="button" role="radio" data-scale="2" aria-checked="false">2×</button>
-            <button type="button" role="radio" data-scale="4" aria-checked="false">4×</button>
-          </div>
-        </div>
-        <p id="scaleNote" class="note"></p>
-      </section>
-
-      <section class="block">
-        <h2><span class="icon" data-icon="image"></span>Format</h2>
-        <div id="formatGroup" class="segmented" role="radiogroup" aria-label="File format">
-          <button type="button" role="radio" data-format="png" aria-checked="true">PNG</button>
-          <button type="button" role="radio" data-format="jpeg" aria-checked="false">JPEG</button>
-          <button type="button" role="radio" data-format="webp" aria-checked="false">WebP</button>
-        </div>
-        <div id="qualityRow" class="quality-row" hidden>
-          <label for="qualityInput">Quality</label>
-          <input id="qualityInput" type="range" min="40" max="100" step="1" value="86">
-          <output id="qualityValue" for="qualityInput">86</output>
-        </div>
-      </section>
-
-      <section class="block">
-        <h2><span class="icon" data-icon="clipboard"></span>File names</h2>
-        <div id="naming" class="naming">
-          <label><input id="nameKeep" type="checkbox" checked> Keep the original name</label>
-          <label><input id="nameSize" type="checkbox" checked> Add the size</label>
-          <label><input id="nameNumber" type="checkbox"> Number them</label>
-        </div>
-        <p id="namePreview" class="preview" aria-live="polite">—</p>
-        <p id="namingOverride" class="note" hidden>The template below is in charge. Tick an option to go back to it.</p>
-        <details class="advanced">
-          <summary><span class="icon" data-icon="settings"></span>Name them my way</summary>
-          <input id="template" class="text-input" type="text" spellcheck="false"
-            aria-label="Filename template" aria-describedby="namePreview" value="{name}-{w}x{h}">
-          <p class="note">Tokens: <code>{name}</code> <code>{n}</code> <code>{w}</code> <code>{h}</code> <code>{label}</code> <code>{date}</code></p>
-        </details>
-      </section>
-
-      <section class="block">
-        <button id="export" class="primary export-button" type="button" disabled>
-          <span class="icon" data-icon="download"></span><span id="exportLabel">Export</span>
-          <span id="exportFill" class="export-fill" aria-hidden="true"></span>
-        </button>
-        <p class="note" id="exportNote">Nothing to export yet.</p>
-      </section>
-    </aside>
   </main>
+
+  <!-- ---- right rail: what comes out ---- -->
+  <aside class="panel" aria-label="Options">
+    <label class="sheet-close" for="panelToggle" aria-label="Close options">
+      <span class="sheet-grip" aria-hidden="true"></span>
+    </label>
+
+    <section class="block">
+      <h2>Output size</h2>
+      <button id="sizeButton" class="size-button" type="button" aria-haspopup="dialog">
+        <span id="sizeSwatch" class="swatch" aria-hidden="true"></span>
+        <span class="size-text">
+          <strong id="sizeName">Square post</strong>
+          <span id="sizeDims">1080 × 1080</span>
+        </span>
+        <span class="icon size-chevron" data-icon="chevron-down" aria-hidden="true"></span>
+      </button>
+      <p id="sizeNote" class="note">Search by name, pixels or shape.</p>
+
+      <div class="scale-row">
+        <span id="scaleLabel" class="field-label">Quick export</span>
+        <div id="scaleGroup" class="segmented" role="radiogroup" aria-labelledby="scaleLabel">
+          <button type="button" role="radio" data-scale="1" aria-checked="true">1×</button>
+          <button type="button" role="radio" data-scale="2" aria-checked="false">2×</button>
+          <button type="button" role="radio" data-scale="4" aria-checked="false">4×</button>
+        </div>
+      </div>
+      <p id="scaleNote" class="note"></p>
+    </section>
+
+    <section class="block">
+      <h2>Format</h2>
+      <div id="formatGroup" class="segmented" role="radiogroup" aria-label="File format">
+        <button type="button" role="radio" data-format="png" aria-checked="true">PNG</button>
+        <button type="button" role="radio" data-format="jpeg" aria-checked="false">JPEG</button>
+        <button type="button" role="radio" data-format="webp" aria-checked="false">WebP</button>
+      </div>
+      <div id="qualityRow" class="quality-row" hidden>
+        <label for="qualityInput">Quality</label>
+        <input id="qualityInput" type="range" min="40" max="100" step="1" value="86">
+        <output id="qualityValue" for="qualityInput">86</output>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>File options</h2>
+      <div id="naming" class="naming">
+        <label><input id="nameKeep" type="checkbox" checked> <span>Keep the original name</span></label>
+        <label><input id="nameSize" type="checkbox" checked> <span>Add the size</span></label>
+        <label><input id="nameNumber" type="checkbox"> <span>Number them</span></label>
+      </div>
+      <p id="namePreview" class="preview" aria-live="polite">—</p>
+      <p id="namingOverride" class="note" hidden>The template below is in charge. Tick an option to go back to it.</p>
+      <details class="advanced">
+        <summary><span class="icon" data-icon="chevron-right"></span>Rename files</summary>
+        <input id="template" class="text-input" type="text" spellcheck="false"
+          aria-label="Filename template" aria-describedby="namePreview" value="{name}-{w}x{h}">
+        <p class="note">Tokens: <code>{name}</code> <code>{n}</code> <code>{w}</code> <code>{h}</code> <code>{label}</code> <code>{date}</code></p>
+      </details>
+    </section>
+
+    <section class="block block-export">
+      <button id="export" class="primary export-button" type="button" disabled>
+        <span class="icon" data-icon="download"></span><span id="exportLabel">Export</span>
+        <span id="exportFill" class="export-fill" aria-hidden="true"></span>
+      </button>
+      <p class="note" id="exportNote">Nothing to export yet.</p>
+    </section>
+  </aside>
+
+  <!-- Tap-outside target for the mobile sheet. Inert on desktop. -->
+  <label class="sheet-scrim" for="panelToggle" aria-hidden="true"></label>
 </div>
 
 <div id="picker" class="picker" hidden role="dialog" aria-modal="true" aria-label="Choose an output size">

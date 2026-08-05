@@ -11,8 +11,9 @@ import { createExportPanel, type ExportPanelController } from './presentation/ex
 import { acceptFrame, fitFrameToTarget, suggestFrame, targetKey, useWholeImage, wholeFrame } from './application/framing.js';
 import { decodeImage } from './infrastructure/image-decoder.js';
 import { requiredElement, requiredElements } from './infrastructure/dom.js';
+import { createHistory } from './history.js';
 import type {
-  CropItem, Framing, OutputTarget, SizeResult,
+  AppState, CropItem, Framing, OutputTarget, SizeResult,
 } from './domain/types.js';
 
 const $ = <T extends Element = HTMLElement>(selector: string): T => requiredElement<T>(selector);
@@ -92,6 +93,14 @@ function updateReadout(framing: Framing | null): void {
   else { label.textContent = `${Math.round(ratio * 100)}% — blurry`; chip.classList.add('bad'); }
 }
 
+// The top bar names the file and states the pixels it arrived with. Both are
+// machine facts about the source, so both are set in mono and neither changes
+// as you crop — the crop's own numbers live in the readout on the stage.
+function showFileIdentity(item: CropItem): void {
+  $('#filename').textContent = item.file.name;
+  $('#fileDims').textContent = `${item.image.naturalWidth} × ${item.image.naturalHeight}`;
+}
+
 // ---- mode ------------------------------------------------------------------
 
 // Cropping and adjusting are two jobs on one image, so they are two modes on
@@ -106,7 +115,10 @@ let hasImage = false;
 function syncStageChrome(): void {
   const cropping = mode === 'crop';
   $('#empty').hidden = hasImage;
-  $('#mode').hidden = !hasImage;
+  // The two modes are the app's navigation now, so they stay on screen and go
+  // quiet instead of disappearing: an empty rail reads as a broken rail.
+  $<HTMLButtonElement>('#modeCrop').disabled = !hasImage;
+  $<HTMLButtonElement>('#modeAdjust').disabled = !hasImage;
   $('#adjust').hidden = !hasImage || cropping;
   // The crop readouts describe a framing decision, so they are only true while
   // that is the decision being made.
@@ -270,7 +282,7 @@ function activate(index: number): void {
   }));
   const item = activeItem();
   if (!item) return;
-  $('#filename').textContent = item.file.name;
+  showFileIdentity(item);
   setChromeVisible(true);
   view.setImage(item.image, item.frame);
   showAdjust(item);
@@ -345,6 +357,19 @@ function step(delta: number): void {
 
 interface TargetSelection { readonly w: number; readonly h: number; readonly name: string; }
 
+// What the panel says about the chosen size. Split out of applyTarget because
+// undo restores a target that was never re-applied — it only has to be shown.
+function showTarget(target: OutputTarget): void {
+  $('#sizeName').textContent = target.label;
+  $('#sizeDims').textContent = `${target.w} × ${target.h}`;
+  // Mirror the frame's shape in the panel chip.
+  const swatch = $('#sizeSwatch');
+  const long = 26;
+  const { w, h } = target;
+  swatch.style.width = `${w >= h ? long : Math.max(6, (long * w) / h)}px`;
+  swatch.style.height = `${w >= h ? Math.max(6, (long * h) / w) : long}px`;
+}
+
 function applyTarget({ w, h, name }: TargetSelection): void {
   if (!(w > 0 && h > 0)) return;
   store.transact((current) => {
@@ -354,13 +379,7 @@ function applyTarget({ w, h, name }: TargetSelection): void {
   view.setTarget(w, h);
   syncFitChrome();
 
-  $('#sizeName').textContent = name;
-  $('#sizeDims').textContent = `${w} × ${h}`;
-  // Mirror the frame's new shape in the panel chip.
-  const swatch = $('#sizeSwatch');
-  const long = 26;
-  swatch.style.width = `${w >= h ? long : Math.max(6, (long * w) / h)}px`;
-  swatch.style.height = `${w >= h ? Math.max(6, (long * h) / w) : long}px`;
+  showTarget({ w, h, label: name });
 
   // Every queued crop follows the new shape immediately, so the filmstrip is
   // always a truthful preview of what would be exported right now.
@@ -433,6 +452,45 @@ exportPanel = createExportPanel({
   onScaleChange: updateReadout,
 });
 
+// ---- history ---------------------------------------------------------------
+
+// Undo restores a whole past state, so the screen has to be rebuilt from it
+// rather than nudged: the target, the framing on the canvas, the adjustment
+// sliders and the queue all describe that state and none of them can be left
+// showing the one it replaced.
+function showState(state: AppState): void {
+  showTarget(state.target);
+  view.setTarget(state.target.w, state.target.h);
+
+  const item = state.items[state.activeIndex] ?? null;
+  if (item) {
+    showFileIdentity(item);
+    setChromeVisible(true);
+    view.setImage(item.image, item.frame);
+    showAdjust(item);
+    updateReadout(view.getFraming());
+  } else {
+    setChromeVisible(false);
+  }
+  syncFitChrome();
+  syncUI();
+}
+
+const history = createHistory({
+  onChange: () => {
+    $<HTMLButtonElement>('#undo').disabled = !history.canUndo();
+    $<HTMLButtonElement>('#redo').disabled = !history.canRedo();
+  },
+  onRestore: showState,
+});
+
+$('#undo').addEventListener('click', () => {
+  if (history.undo()) announce('Undone');
+});
+$('#redo').addEventListener('click', () => {
+  if (history.redo()) announce('Redone');
+});
+
 // ---- events ----------------------------------------------------------------
 
 const openPicker = () => { fileInput.value = ''; fileInput.click(); };
@@ -465,12 +523,27 @@ document.addEventListener('paste', (e) => {
   intake(files);
 });
 
+// Undo is the one shortcut that has to work from anywhere and in either mode,
+// so it is read before the framing keys and their guards.
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
+  const focused = document.activeElement;
+  if (focused && focused.matches?.('input, select, textarea')) return;
+  e.preventDefault();
+  const redoing = e.shiftKey;
+  const moved = redoing ? history.redo() : history.undo();
+  announce(moved
+    ? (redoing ? 'Redone' : 'Undone')
+    : (redoing ? 'Nothing to redo' : 'Nothing to undo'));
+});
+
 document.addEventListener('keydown', (e) => {
   // The target is not always an element (and not always one with .matches),
   // so ask the document what has focus instead of trusting the event.
   const focused = document.activeElement;
   if (focused && focused.matches?.('input, select, textarea')) return;
   if (!view.hasImage()) return;
+  if (e.ctrlKey || e.metaKey) return;
 
   // Every key below moves the framing or the queue. None of them belongs to
   // adjusting, and a stray arrow that quietly re-crops the image you were only
