@@ -37,7 +37,7 @@
      the layout with it. `zoom` is the honest one-knob answer: it is what the
      browser's own zoom does and it keeps the canvas crisp, because the backing
      store is sized from the post-zoom rect. Change this to re-scale the shell. */
-  --ui-scale: 1;
+  --ui-scale: 1.25;
 
   /* Warm paper canvas */
   --bg:        oklch(0.97 0.005 80);
@@ -502,6 +502,98 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   background: oklch(0.98 0.012 60);
   color: var(--accent-2);
 }
+
+/* ---- zoom ----
+   Bottom right, opposite the readout: the same family as the other stage
+   furniture — a translucent pill on the picture — holding a continuous control
+   and the number it is setting. */
+
+.zoom-tool {
+  position: absolute; right: 18px; bottom: 18px;
+  z-index: 4;
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: oklch(1 0 0 / 0.88);
+  box-shadow: var(--shadow-small);
+  backdrop-filter: blur(8px);
+}
+.zoom-tool[hidden] { display: none; }
+
+.zoom-step {
+  min-width: 24px; min-height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 15px; line-height: 1;
+  box-shadow: none;
+}
+.zoom-step:hover:not(:disabled) { background: oklch(0.55 0.02 70 / 0.09); color: var(--ink); }
+
+/* A plain rail with an accent grip. Range inputs need both vendor tracks spelled
+   out or one browser draws its own idea of a slider on our paper. */
+.zoom-slider {
+  width: 132px;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.zoom-slider::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.zoom-slider::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px; height: 13px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: var(--shadow-small);
+}
+.zoom-slider::-moz-range-thumb {
+  width: 13px; height: 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: var(--shadow-small);
+}
+.zoom-slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* The number is machine text and editable, so it looks like both. */
+.zoom-field {
+  display: flex; align-items: baseline; gap: 1px;
+  padding-right: 4px;
+  color: var(--ink-4);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.zoom-value {
+  width: 5ch;
+  padding: 2px 3px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.zoom-value:hover { border-color: var(--line); }
+.zoom-value:focus { border-color: var(--accent); background: oklch(1 0 0 / 0.9); outline: none; }
 
 /* ---- adjust panel ----
    Adjust does not take the image away, so the picture stays on the canvas and

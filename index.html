@@ -146,6 +146,22 @@
         <p id="framingStep" class="framing-step"></p>
       </div>
 
+      <!-- Zoom, stated as a number and driven as a continuous quantity. The
+           wheel is a coarse instrument — the slider is logarithmic, so every
+           step is the same proportion of what you are already at, and the field
+           is there for the times you know the number you want. -->
+      <div id="zoomTool" class="zoom-tool" hidden>
+        <button id="zoomOut" class="zoom-step" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+        <input id="zoomSlider" class="zoom-slider" type="range" min="0" max="1000" step="1" value="0"
+          aria-label="Zoom">
+        <button id="zoomIn" class="zoom-step" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+        <span class="zoom-field">
+          <input id="zoomValue" class="zoom-value" type="text" inputmode="decimal" spellcheck="false"
+            value="100" aria-label="Zoom percentage">
+          <span class="zoom-unit" aria-hidden="true">%</span>
+        </span>
+      </div>
+
       <div class="drop-veil"><span>Drop to load — one image, or the whole stack</span></div>
     </section>
 

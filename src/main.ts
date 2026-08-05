@@ -71,6 +71,7 @@ function syncStripSoon(): void {
 function updateReadout(framing: Framing | null): void {
   const { target } = store.get();
   if (!framing) return;
+  syncZoom();
   const w = Math.round(framing.cropW);
   const h = Math.round(framing.cropH);
   $('#cropSize').textContent = `${w} × ${h}`;
@@ -126,6 +127,9 @@ function syncStageChrome(): void {
   $('#readout').hidden = !hasImage || !cropping;
   $('#hints').hidden = !hasImage || !cropping;
   $('#fitToggle').hidden = !hasImage || !cropping;
+  // Zoom is a fact about the framing, so it is on screen exactly as long as the
+  // framing is the job in hand.
+  $('#zoomTool').hidden = !hasImage || !cropping;
   $('#modeCrop').setAttribute('aria-selected', String(cropping));
   $('#modeAdjust').setAttribute('aria-selected', String(!cropping));
   syncFramingChrome();
@@ -245,6 +249,61 @@ function syncFitChrome(): void {
     ? `Fit to stage — ${percent}%`
     : capped ? `Bigger than the stage — shown at ${percent}%` : '';
 }
+
+// ---- zoom ------------------------------------------------------------------
+
+// Zoom is a quantity, so it gets a control that can express one. The slider is
+// logarithmic — every step is the same proportion of where you already are, so
+// it is as fine at 700% as at 101% and there are no jumps anywhere along it —
+// and the field is for when you already know the number.
+const ZOOM_TICKS = 1000;
+const zoomSlider = $<HTMLInputElement>('#zoomSlider');
+const zoomField = $<HTMLInputElement>('#zoomValue');
+
+const tickToZoom = (tick: number): number =>
+  view.getMaxZoom() ** (tick / ZOOM_TICKS);
+const zoomToTick = (zoom: number): number =>
+  Math.round((Math.log(zoom) / Math.log(view.getMaxZoom())) * ZOOM_TICKS);
+
+// Whole numbers most of the time, a tenth when the tenth is the point.
+const showPercent = (zoom: number): string => {
+  const percent = Math.round(zoom * 1000) / 10;
+  return Number.isInteger(percent) ? String(percent) : percent.toFixed(1);
+};
+
+// The zoom can move without the control being touched — wheel, pinch, a new
+// image, a change of size — so the control is refreshed from the viewfinder
+// every frame rather than only when it is the thing that caused the change.
+// Whatever has focus is being typed or dragged, and is left alone.
+function syncZoom(): void {
+  const zoom = view.getZoom();
+  const focused = document.activeElement;
+  if (focused !== zoomSlider) zoomSlider.value = String(zoomToTick(zoom));
+  if (focused !== zoomField) zoomField.value = showPercent(zoom);
+}
+
+zoomSlider.addEventListener('input', () => {
+  view.setZoom(tickToZoom(Number(zoomSlider.value)));
+});
+
+// Enter and leaving the field are the same act: take the number if it is one,
+// and say what actually happened by writing the landed value back.
+function commitTypedZoom(): void {
+  const typed = Number.parseFloat(zoomField.value.replace(/[^\d.]/g, ''));
+  if (Number.isFinite(typed)) view.setZoom(typed / 100);
+  zoomField.value = showPercent(view.getZoom());
+  zoomSlider.value = String(zoomToTick(view.getZoom()));
+}
+zoomField.addEventListener('change', commitTypedZoom);
+// syncZoom leaves a focused field alone, so the zoom can move underneath it
+// while you are in there. Leaving is the moment to catch up.
+zoomField.addEventListener('blur', () => { zoomField.value = showPercent(view.getZoom()); });
+zoomSlider.addEventListener('blur', () => { zoomSlider.value = String(zoomToTick(view.getZoom())); });
+zoomField.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); commitTypedZoom(); canvas.focus(); }
+});
+$('#zoomIn').addEventListener('click', () => view.zoomBy(1.1));
+$('#zoomOut').addEventListener('click', () => view.zoomBy(1 / 1.1));
 
 function toggleFit(): void {
   const next = !view.isFit();
@@ -734,9 +793,9 @@ document.addEventListener('keydown', (e) => {
     '0': () => view.fill(),
     f: toggleFit,
     F: toggleFit,
-    '=': () => view.zoomBy(1.2),
-    '+': () => view.zoomBy(1.2),
-    '-': () => view.zoomBy(1 / 1.2),
+    '=': () => view.zoomBy(1.1),
+    '+': () => view.zoomBy(1.1),
+    '-': () => view.zoomBy(1 / 1.1),
     Enter: approve,
     ' ': approve,
     ']': () => step(1),

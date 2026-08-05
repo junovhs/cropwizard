@@ -40,6 +40,9 @@ export interface ViewfinderController {
   setFit(on: boolean): void;
   isFit(): boolean;
   getFrameScale(): number;
+  getZoom(): number;
+  getMaxZoom(): number;
+  setZoom(zoom: number): void;
   nudge(dx: number, dy: number): void;
   zoomBy(factor: number): void;
   fill(): void;
@@ -175,7 +178,9 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     if (!image) return;
     const min = minScale();
     if (scale.v < min - 0.0001) scale.set(min);
-    else if (Math.abs(scale.v - min) / min < 0.015) scale.set(min); // snap to fit
+    // A magnet on exact fit, kept narrow: the zoom is a number you can set to
+    // 101% on purpose now, and a wide magnet would quietly overrule you.
+    else if (Math.abs(scale.v - min) / min < 0.004) scale.set(min);
     const l = legal(tx.v, ty.v);
     tx.set(l.x);
     ty.set(l.y);
@@ -436,9 +441,16 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     if (!image) return;
     e.preventDefault();
     const p = localPoint(e);
+    // A wheel reports in lines or pages as readily as in pixels, and a notch
+    // that means 3 lines on one machine and 100px on another is why zoom used to
+    // land somewhere different on every mouse.
+    const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? vh : 1);
     // Trackpad pinch arrives as ctrl+wheel; plain wheel zooms too, since there
-    // is nothing else on this canvas to scroll.
-    const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0022));
+    // is nothing else on this canvas to scroll. The plain wheel is deliberately
+    // gentle — a notch is a few percent, not a fifth of the picture — because
+    // the size of the step is the whole complaint about wheel zoom. Anything
+    // exact is done on the slider or typed into the field.
+    const factor = Math.exp(-delta * (e.ctrlKey ? 0.01 : 0.0006));
     beginInteraction();
     zoomAt(factor, p.x, p.y, true);
     if (wheelIdle !== null) clearTimeout(wheelIdle);
@@ -521,6 +533,33 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     isFit: () => fitMode,
     // 1 while the frame is at true size; below 1 once the stage has capped it.
     getFrameScale: () => frameScale,
+    // Zoom is stated against the smallest scale that still fills the frame, so
+    // 100% is "the whole picture, nothing wasted" and every larger number is how
+    // far in you have gone. That is the only reading the frame can support: the
+    // floor moves with the frame's shape, and a percentage of the source pixels
+    // would change under you every time the target did.
+    getZoom(): number {
+      if (!image) return 1;
+      const min = minScale();
+      return min > 0 ? scale.v / min : 1;
+    },
+    getMaxZoom: () => MAX_ZOOM,
+    // Set from a control rather than a gesture: there is no cursor to keep a
+    // point under, so the frame's own centre holds still.
+    setZoom(zoom: number): void {
+      if (!image) return;
+      const min = minScale();
+      const from = scale.v;
+      const to = clamp(zoom, 1, MAX_ZOOM) * min;
+      if (from <= 0 || Math.abs(to - from) / from < 1e-6) return;
+      beginInteraction();
+      // Immediate: a slider is already a continuous gesture, and springing to
+      // each value you drag through turns it into a lag.
+      zoomAt(to / from, vw / 2, vh / 2, true);
+      if (wheelIdle !== null) clearTimeout(wheelIdle);
+      wheelIdle = setTimeout(() => { settle(); endInteraction(); }, 400);
+      loop.kick();
+    },
     nudge(dx: number, dy: number): void {
       if (!image) return;
       beginInteraction();
