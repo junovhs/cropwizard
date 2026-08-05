@@ -1,11 +1,33 @@
 // The size catalogue.
+
+import type { Preset } from './domain/types.js';
 //
 // Search stays deliberately dumb: each preset carries marketer language,
 // platform slang, format names, ratios, and use-case aliases. The builder
 // also adds the preset id, group, name, orientation, and common dimension
 // spellings automatically.
 
-const enrichPreset = ({ id, group, name, w, h, hot = false, keywords }) => {
+interface PresetInput {
+  readonly id: string;
+  readonly group: string;
+  readonly name: string;
+  readonly w: number;
+  readonly h: number;
+  readonly hot?: boolean;
+  readonly keywords: string;
+}
+
+type RawPreset = readonly [
+  id: string,
+  group: string,
+  name: string,
+  width: number,
+  height: number,
+  hot: boolean,
+  keywords: string,
+];
+
+const enrichPreset = ({ id, group, name, w, h, hot = false, keywords }: PresetInput): Preset => {
   const orientation = w === h
     ? ['square']
     : w > h
@@ -36,7 +58,7 @@ const enrichPreset = ({ id, group, name, w, h, hot = false, keywords }) => {
 };
 
 // Tuple shape: [id, group, name, width, height, hot, pipe-delimited keywords]
-const RAW_PRESETS = [
+const RAW_PRESETS: readonly RawPreset[] = [
   // Paste these directly inside RAW_PRESETS.
   // Platform-owned upload requirements can change; these are practical
   // discovery presets and production masters, not a validation layer.
@@ -2421,14 +2443,14 @@ const RAW_PRESETS = [
   ["digital-signage", "Events & calls", "Digital signage — landscape", 1920, 1080, false, "digital signage|screen|display|tv graphic|menu board|landscape|16:9"],
 ];
 
-export const PRESETS = RAW_PRESETS.map(
+export const PRESETS: readonly Preset[] = RAW_PRESETS.map(
   ([id, group, name, w, h, hot, keywords]) =>
     enrichPreset({ id, group, name, w, h, hot, keywords }),
 );
 
 // Ratio shorthand people type directly. Each ratio maps to a concrete,
 // practical canvas instead of an abstract shape.
-export const RATIO_SIZES = [
+export const RATIO_SIZES: readonly { readonly ratio: number; readonly w: number; readonly h: number }[] = [
   { ratio: 1 / 1, w: 1080, h: 1080 },
   { ratio: 4 / 5, w: 1080, h: 1350 },
   { ratio: 5 / 4, w: 1350, h: 1080 },
@@ -2451,4 +2473,4 @@ export const RATIO_SIZES = [
   { ratio: 1 / 1.91, w: 628, h: 1200 },
 ];
 
-export const HOT = PRESETS.filter((preset) => preset.hot);
+export const HOT: readonly Preset[] = PRESETS.filter((preset) => preset.hot);

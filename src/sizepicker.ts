@@ -1,0 +1,352 @@
+// The size palette: one text box that always lands on the right size.
+
+import { search, ratioLabel } from './search.js';
+import { loadSaved, addSaved, renameSaved, removeSaved } from './saved.js';
+import type { Dimensions, SavedSize, SizeResult } from './domain/types.js';
+
+const RECENTS_KEY = 'cropwizard.recents';
+const MAX_RECENTS = 5;
+
+interface NamingState extends Dimensions {
+  readonly id?: string;
+}
+
+export interface SizePickerOptions {
+  readonly root: HTMLElement;
+  readonly input: HTMLInputElement;
+  readonly list: HTMLElement;
+  readonly trigger: HTMLButtonElement;
+  readonly getTemplate?: () => Dimensions | null;
+  readonly onPick: (result: SizeResult) => void;
+}
+
+export interface SizePickerController {
+  open(): void;
+  close(): void;
+  isOpen(): boolean;
+}
+
+const loadRecents = (): string[] => {
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveRecents = (ids: readonly string[]): void => {
+  try {
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(ids.slice(0, MAX_RECENTS)));
+  } catch {
+    // Recents are optional when storage is unavailable.
+  }
+};
+
+function swatch(w: number, h: number): HTMLSpanElement {
+  const el = document.createElement('span');
+  el.className = 'swatch';
+  const long = 22;
+  const [sw, sh] = w >= h
+    ? [long, Math.max(5, (long * h) / w)]
+    : [Math.max(5, (long * w) / h), long];
+  el.style.width = `${sw}px`;
+  el.style.height = `${sh}px`;
+  return el;
+}
+
+function inscribe(iw: number, ih: number, ratio: number): Dimensions {
+  return iw / ih > ratio
+    ? { w: Math.round(ih * ratio), h: ih }
+    : { w: iw, h: Math.round(iw / ratio) };
+}
+
+function rowAction(label: string, glyph: string, onRun: () => void): HTMLButtonElement {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'row-action';
+  el.title = label;
+  el.setAttribute('aria-label', label);
+  el.textContent = glyph;
+  el.addEventListener('mousedown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onRun();
+  });
+  return el;
+}
+
+export function createSizePicker(options: SizePickerOptions): SizePickerController {
+  const { root, input, list, trigger, getTemplate, onPick } = options;
+  let rows: SizeResult[] = [];
+  let cursor = 0;
+  let recents = loadRecents();
+  let saved: SavedSize[] = loadSaved();
+  let template: Dimensions | null = null;
+  let naming: NamingState | null = null;
+
+  function beginNaming(next: NamingState, suggestion: string): void {
+    naming = next;
+    input.value = suggestion;
+    input.select();
+    input.focus();
+    render();
+  }
+
+  function commitNaming(): void {
+    if (!naming) return;
+    const name = input.value.trim();
+    saved = naming.id
+      ? renameSaved(naming.id, name)
+      : addSaved(name, naming.w, naming.h);
+    naming = null;
+    input.value = '';
+    cursor = 0;
+    render();
+  }
+
+  function cancelNaming(): void {
+    naming = null;
+    input.value = '';
+    cursor = 0;
+    render();
+  }
+
+  function renderNaming(): void {
+    if (!naming) return;
+    const note = document.createElement('p');
+    note.className = 'picker-empty';
+    note.textContent = naming.id
+      ? 'Type a new name, then press Enter. Escape to leave it alone.'
+      : `Name this size — ${naming.w} × ${naming.h} — then press Enter. Escape to cancel.`;
+    list.append(note);
+  }
+
+  function ratioAnswer(result: SizeResult): SizeResult | null {
+    if (!template) return null;
+    const { w, h } = inscribe(template.w, template.h, result.w / result.h);
+    return {
+      kind: 'ratio',
+      key: `ratio-${result.w}x${result.h}`,
+      name: `${ratioLabel(result.w, result.h)} of this image`,
+      detail: 'Its own pixels, cropped to shape',
+      w,
+      h,
+    };
+  }
+
+  function appendRatioControl(container: HTMLElement, result: SizeResult): void {
+    const answer = ratioAnswer(result);
+    if (!answer) {
+      const ratio = document.createElement('span');
+      ratio.className = 'picker-ratio';
+      ratio.textContent = ratioLabel(result.w, result.h);
+      container.append(ratio);
+      return;
+    }
+
+    const ratio = document.createElement('button');
+    ratio.type = 'button';
+    ratio.className = 'picker-ratio';
+    ratio.textContent = ratioLabel(result.w, result.h);
+    ratio.tabIndex = -1;
+    const say = `Crop this image to ${ratioLabel(result.w, result.h)} — ${answer.w} × ${answer.h}, its own pixels`;
+    ratio.title = say;
+    ratio.setAttribute('aria-label', say);
+    ratio.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+      onPick(answer);
+    });
+    container.append(ratio);
+  }
+
+  function render(): void {
+    list.textContent = '';
+    if (naming) {
+      renderNaming();
+      return;
+    }
+
+    rows = search(input.value, recents, saved, template);
+    if (template && !input.value.trim()) {
+      const templateResult: SizeResult = {
+        kind: 'template',
+        key: 'template',
+        name: 'Match this image',
+        detail: 'Its own pixel size',
+        w: template.w,
+        h: template.h,
+        section: 'From this image',
+      };
+      rows = [templateResult, ...rows];
+    }
+    cursor = Math.min(cursor, Math.max(0, rows.length - 1));
+
+    if (!rows.length) {
+      const none = document.createElement('p');
+      none.className = 'picker-empty';
+      none.textContent = 'No size by that name. Type exact pixels instead — like 1200 x 630.';
+      list.append(none);
+      return;
+    }
+
+    let section: string | null = null;
+    rows.forEach((result, index) => {
+      if (result.section && result.section !== section) {
+        section = result.section;
+        const head = document.createElement('div');
+        head.className = 'picker-section';
+        head.textContent = section;
+        list.append(head);
+      }
+
+      const row = document.createElement('div');
+      row.className = 'picker-row';
+      row.id = `picker-row-${index}`;
+      row.setAttribute('role', 'option');
+      row.setAttribute('aria-selected', String(index === cursor));
+      row.dataset.index = String(index);
+      row.append(swatch(result.w, result.h));
+
+      const text = document.createElement('span');
+      text.className = 'picker-text';
+      const name = document.createElement('strong');
+      name.textContent = result.name;
+      const detail = document.createElement('span');
+      detail.textContent = result.detail;
+      text.append(name, detail);
+
+      const dims = document.createElement('span');
+      dims.className = 'picker-dims';
+      dims.textContent = `${result.w} × ${result.h}`;
+
+      row.append(text);
+      appendRatioControl(row, result);
+      row.append(dims);
+
+      if (result.kind === 'custom') {
+        row.append(rowAction('Save this size', '☆', () => beginNaming({ w: result.w, h: result.h }, '')));
+      } else if (result.kind === 'saved' && result.savedId) {
+        const savedId = result.savedId;
+        row.append(
+          rowAction('Rename this size', '✎', () => beginNaming({ id: savedId, w: result.w, h: result.h }, result.name)),
+          rowAction('Delete this size', '✕', () => {
+            saved = removeSaved(savedId);
+            render();
+          }),
+        );
+      }
+
+      row.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        choose(index);
+      });
+      row.addEventListener('mousemove', () => setCursor(index));
+      list.append(row);
+    });
+    scrollToCursor();
+  }
+
+  function setCursor(next: number): void {
+    if (next === cursor) return;
+    cursor = next;
+    for (const row of list.querySelectorAll<HTMLElement>('.picker-row')) {
+      row.setAttribute('aria-selected', String(Number(row.dataset.index) === cursor));
+    }
+    input.setAttribute('aria-activedescendant', `picker-row-${cursor}`);
+  }
+
+  function scrollToCursor(): void {
+    list.querySelector<HTMLElement>(`#picker-row-${cursor}`)?.scrollIntoView({ block: 'nearest' });
+  }
+
+  function move(delta: number): void {
+    if (!rows.length) return;
+    setCursor((cursor + delta + rows.length) % rows.length);
+    scrollToCursor();
+  }
+
+  function choose(index = cursor, shape = false): void {
+    const row = rows[index];
+    if (!row) return;
+    const result = shape ? ratioAnswer(row) ?? row : row;
+    if (result.id) {
+      recents = [result.id, ...recents.filter((id) => id !== result.id)].slice(0, MAX_RECENTS);
+      saveRecents(recents);
+    }
+    close();
+    onPick(result);
+  }
+
+  function open(): void {
+    root.hidden = false;
+    naming = null;
+    saved = loadSaved();
+    template = getTemplate?.() ?? null;
+    const shapeHint = root.querySelector<HTMLElement>('#shapeHint');
+    if (shapeHint) shapeHint.hidden = !template;
+    input.select();
+    input.focus();
+    cursor = 0;
+    render();
+    requestAnimationFrame(() => root.classList.add('open'));
+  }
+
+  function close(): void {
+    naming = null;
+    root.classList.remove('open');
+    root.hidden = true;
+    trigger.focus();
+  }
+
+  input.addEventListener('input', () => {
+    if (!naming) {
+      cursor = 0;
+      render();
+    }
+  });
+
+  input.addEventListener('keydown', (event) => {
+    if (naming) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitNaming();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelNaming();
+      }
+      return;
+    }
+
+    const keys: Readonly<Record<string, () => void>> = {
+      ArrowDown: () => move(1),
+      ArrowUp: () => move(-1),
+      Enter: () => choose(cursor, event.shiftKey),
+      Escape: close,
+      Tab: close,
+    };
+    const action = keys[event.key];
+    if (!action) return;
+    if (event.key !== 'Tab') event.preventDefault();
+    action();
+  });
+
+  root.addEventListener('mousedown', (event) => {
+    if (event.target === root) close();
+  });
+  trigger.addEventListener('click', open);
+
+  window.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      if (root.hidden) open();
+      else close();
+    }
+  });
+
+  return { open, close, isOpen: () => !root.hidden };
+}

@@ -9,3 +9,12 @@ SEMMAP.md
 
 # semclear witness — regenerated per candidate by `semclear delta`, same class
 semclear-verification.json
+
+# TypeScript build output and toolchain — all regenerable from source via
+# `npm ci && npm run build`. package-lock.json IS committed (it pins the build).
+node_modules/
+dist/
+*.tsbuildinfo
+
+# editor / rename leftovers
+*.bak

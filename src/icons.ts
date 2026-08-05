@@ -37,13 +37,15 @@ export const ICONS = {
   maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
   settings: '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/>',
   sliders: '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
-};
+} as const;
+
+export type IconName = keyof typeof ICONS;
 
 /**
  * One icon as an inline SVG element. Stroke is `currentColor`, so an icon is
  * the same colour as the words beside it in either theme.
  */
-export function icon(name) {
+export function icon(name: IconName): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('fill', 'none');
@@ -54,7 +56,7 @@ export function icon(name) {
   svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('focusable', 'false');
   // The only markup here is our own constant path data, never user input.
-  svg.innerHTML = ICONS[name] || '';
+  svg.innerHTML = ICONS[name];
   return svg;
 }
 
@@ -62,9 +64,10 @@ export function icon(name) {
  * Fill in every `[data-icon]` placeholder under `root`. Markup declares which
  * icon it wants; this module is the only thing that knows how to draw one.
  */
-export function paintIcons(root = document) {
-  for (const slot of root.querySelectorAll('[data-icon]')) {
+export function paintIcons(root: ParentNode = document): void {
+  for (const slot of root.querySelectorAll<HTMLElement>('[data-icon]')) {
     if (slot.firstElementChild) continue;
-    slot.append(icon(slot.dataset.icon));
+    const name = slot.dataset.icon;
+    if (name && name in ICONS) slot.append(icon(name as IconName));
   }
 }

@@ -11,6 +11,8 @@
 
 import { Spring, Pulse, createLoop, clamp, rubber } from './juice.js';
 import { filterFor } from './adjust.js';
+import { canvasContext } from './infrastructure/dom.js';
+import type { Adjustment, Framing } from './domain/types.js';
 
 const GHOST_IDLE = 0.12;      // what you keep seeing of the discarded image
 const GHOST_ACTIVE = 0.34;    // ...and how much it lifts while you work
@@ -19,10 +21,37 @@ const MAX_ZOOM = 8;           // relative to the minimum covering scale
 const SNAP_PX = 7;            // magnetic pull toward a centred framing
 const OVERSHOOT = 140;        // how far past the edge a hard drag can reach
 
-export function createViewfinder({ canvas, stage, onFrameChange }) {
-  const ctx = canvas.getContext('2d');
+interface Point { readonly x: number; readonly y: number; }
+interface MutablePoint { x: number; y: number; }
+interface FrameRect { readonly x: number; readonly y: number; readonly w: number; readonly h: number; }
+interface DragState { readonly from: Point; readonly tx: number; readonly ty: number; }
+interface PinchState { readonly dist: number; readonly mid: Point; }
 
-  let image = null;
+export interface ViewfinderOptions {
+  readonly canvas: HTMLCanvasElement;
+  readonly stage: HTMLElement;
+  readonly onFrameChange?: (framing: Framing) => void;
+}
+
+export interface ViewfinderController {
+  setImage(image: HTMLImageElement | null, framing?: Framing | null): void;
+  setAdjust(adjustment: Adjustment): void;
+  setTarget(w: number, h: number): void;
+  setFit(on: boolean): void;
+  isFit(): boolean;
+  getFrameScale(): number;
+  nudge(dx: number, dy: number): void;
+  zoomBy(factor: number): void;
+  fill(): void;
+  resize(): void;
+  getFraming(): Framing;
+  hasImage(): boolean;
+}
+
+export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOptions): ViewfinderController {
+  const ctx = canvasContext(canvas);
+
+  let image: HTMLImageElement | null = null;
   let filter = 'none';
   let aspect = 1;
   let targetW = 1, targetH = 1;
@@ -32,10 +61,10 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
   let fitMode = false;
   let frameScale = 1;
   // The framing to hold on to while the frame itself is changing shape or size.
-  let morph = null;
+  let morph: Framing | null = null;
   let vw = 1, vh = 1, dpr = 1;
-  let dragging = null;
-  const pointers = new Map();
+  let dragging: DragState | null = null;
+  const pointers = new Map<number, Point>();
   let snapped = { x: false, y: false };
 
   const frameW = new Spring(0, { stiffness: 210, damping: 24 });
@@ -73,7 +102,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
 
   // ---- geometry ------------------------------------------------------------
 
-  const frameRect = () => ({
+  const frameRect = (): FrameRect => ({
     x: (vw - frameW.v) / 2,
     y: (vh - frameH.v) / 2,
     w: frameW.v,
@@ -82,25 +111,29 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
 
   // Smallest scale at which the image still covers the frame. This is the floor
   // for every zoom: the frame is never allowed to contain empty space.
-  function minScale() {
+  function minScale(): number {
     if (!image) return 1;
     return Math.max(frameW.v / image.naturalWidth, frameH.v / image.naturalHeight);
   }
 
-  function bounds() {
+  function bounds(): { readonly x: readonly [number, number]; readonly y: readonly [number, number] } {
+    const current = image;
+    if (!current) return { x: [0, 0], y: [0, 0] };
     const f = frameRect();
     const s = scale.v;
     return {
-      x: [f.x + f.w - image.naturalWidth * s, f.x],
-      y: [f.y + f.h - image.naturalHeight * s, f.y],
+      x: [f.x + f.w - current.naturalWidth * s, f.x],
+      y: [f.y + f.h - current.naturalHeight * s, f.y],
     };
   }
 
-  function centred() {
+  function centred(): Point {
+    const current = image;
+    if (!current) return { x: vw / 2, y: vh / 2 };
     const f = frameRect();
     return {
-      x: f.x + f.w / 2 - (image.naturalWidth * scale.v) / 2,
-      y: f.y + f.h / 2 - (image.naturalHeight * scale.v) / 2,
+      x: f.x + f.w / 2 - (current.naturalWidth * scale.v) / 2,
+      y: f.y + f.h / 2 - (current.naturalHeight * scale.v) / 2,
     };
   }
 
@@ -108,7 +141,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
   // smallness of a small crop is a fact you can see rather than a number you
   // have to imagine. Anything larger than the stage is capped down to fit, and
   // `frameScale` records by how much so the UI can say so.
-  function layoutFrame(immediate = false) {
+  function layoutFrame(immediate = false): void {
     const roomW = Math.max(40, vw - FRAME_PAD * 2);
     const roomH = Math.max(40, vh - FRAME_PAD * 2);
     const fits = Math.min(roomW / targetW, roomH / targetH);
@@ -122,7 +155,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
 
   // Nearest legal framing, with a magnet at dead centre on each axis
   // independently — so you can be centred horizontally and free vertically.
-  function legal(x, y) {
+  function legal(x: number, y: number): Point {
     const b = bounds();
     const c = centred();
     let lx = clamp(x, b.x[0], b.x[1]);
@@ -138,7 +171,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
 
   // Send the transform to its resting place. Called on pointer release, after a
   // zoom, and every frame the frame itself is still morphing.
-  function settle() {
+  function settle(): void {
     if (!image) return;
     const min = minScale();
     if (scale.v < min - 0.0001) scale.set(min);
@@ -149,7 +182,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     publish();
   }
 
-  function publish() {
+  function publish(): void {
     if (!image || !onFrameChange) return;
     onFrameChange(readFraming());
   }
@@ -157,7 +190,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
   // ---- framing, in source-image pixels -------------------------------------
   // Persisted per item so it survives resize, target changes and re-activation.
 
-  function readFraming() {
+  function readFraming(): Framing {
     const f = frameRect();
     const s = scale.v;
     const cropW = f.w / s;
@@ -170,7 +203,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     };
   }
 
-  function applyFraming(framing) {
+  function applyFraming(framing?: Framing | null): void {
     if (!image) return;
     const f = frameRect();
     const iw = image.naturalWidth, ih = image.naturalHeight;
@@ -191,7 +224,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
 
   // ---- painting ------------------------------------------------------------
 
-  function draw() {
+  function draw(): void {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, vw, vh);
     ctx.fillStyle = '#0b0e13';
@@ -224,7 +257,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     drawChrome(f);
   }
 
-  function drawChrome(f) {
+  function drawChrome(f: FrameRect): void {
     // Thirds guides, present only while you are actually framing.
     if (guides.v > 0.01) {
       ctx.strokeStyle = `rgba(255,255,255,${0.28 * guides.v})`;
@@ -245,10 +278,11 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     const arm = Math.min(26, f.w / 5, f.h / 5);
     const corners = () => {
       ctx.beginPath();
-      for (const [cx, cy, sx, sy] of [
+      const cornerSpecs: readonly (readonly [number, number, number, number])[] = [
         [f.x, f.y, 1, 1], [f.x + f.w, f.y, -1, 1],
         [f.x, f.y + f.h, 1, -1], [f.x + f.w, f.y + f.h, -1, -1],
-      ]) {
+      ];
+      for (const [cx, cy, sx, sy] of cornerSpecs) {
         ctx.moveTo(cx + sx * arm, cy);
         ctx.lineTo(cx, cy);
         ctx.lineTo(cx, cy + sy * arm);
@@ -285,25 +319,25 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
 
   // ---- interaction ---------------------------------------------------------
 
-  const localPoint = (e) => {
+  const localPoint = (event: PointerEvent | WheelEvent): Point => {
     const r = canvas.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    return { x: event.clientX - r.left, y: event.clientY - r.top };
   };
 
-  function beginInteraction() {
+  function beginInteraction(): void {
     ghost.set(GHOST_ACTIVE);
     guides.set(1);
     loop.kick();
   }
 
-  function endInteraction() {
+  function endInteraction(): void {
     ghost.set(GHOST_IDLE);
     guides.set(0);
     snapped = { x: false, y: false };
     loop.kick();
   }
 
-  function onPointerDown(e) {
+  function onPointerDown(e: PointerEvent): void {
     if (!image) return;
     canvas.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, localPoint(e));
@@ -318,8 +352,8 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     }
   }
 
-  let pinch = null;
-  function startPinch() {
+  let pinch: PinchState | null = null;
+  function startPinch(): void {
     const [a, b] = [...pointers.values()];
     pinch = {
       dist: Math.hypot(a.x - b.x, a.y - b.y),
@@ -328,7 +362,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     beginInteraction();
   }
 
-  function onPointerMove(e) {
+  function onPointerMove(e: PointerEvent): void {
     if (!image) return;
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, localPoint(e));
 
@@ -357,13 +391,13 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     loop.kick();
   }
 
-  function panBy(dx, dy) {
+  function panBy(dx: number, dy: number): void {
     const l = legal(tx.v + dx, ty.v + dy);
     tx.jump(l.x);
     ty.jump(l.y);
   }
 
-  function onPointerUp(e) {
+  function onPointerUp(e: PointerEvent): void {
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
     if (pointers.size === 0) {
@@ -375,7 +409,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
   }
 
   // `immediate` skips the settle, because a pinch settles on release instead.
-  function zoomAt(factor, ax, ay, immediate = false) {
+  function zoomAt(factor: number, ax: number, ay: number, immediate = false): void {
     if (!image) return;
     const min = minScale();
     const from = scale.v;
@@ -393,8 +427,8 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     if (!immediate) settle();
   }
 
-  let wheelIdle = null;
-  function onWheel(e) {
+  let wheelIdle: ReturnType<typeof setTimeout> | null = null;
+  function onWheel(e: WheelEvent): void {
     if (!image) return;
     e.preventDefault();
     const p = localPoint(e);
@@ -403,14 +437,14 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0022));
     beginInteraction();
     zoomAt(factor, p.x, p.y, true);
-    clearTimeout(wheelIdle);
+    if (wheelIdle !== null) clearTimeout(wheelIdle);
     wheelIdle = setTimeout(() => { settle(); endInteraction(); }, 140);
     loop.kick();
   }
 
   // ---- public surface ------------------------------------------------------
 
-  function resize() {
+  function resize(): void {
     // Read the framing against the *old* stage before anything moves — it is
     // measured relative to the frame rect, which depends on vw/vh.
     const framing = image ? readFraming() : null;
@@ -432,7 +466,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
   canvas.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('dblclick', () => { fill(); });
 
-  function fill() {
+  function fill(): void {
     if (!image) return;
     applyFraming(null);
     snapPulse.fire();
@@ -440,7 +474,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
   }
 
   return {
-    setImage(next, framing) {
+    setImage(next: HTMLImageElement | null, framing?: Framing | null): void {
       image = next;
       canvas.style.cursor = next ? 'grab' : 'default';
       if (next) {
@@ -457,13 +491,13 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     },
     // The live adjustment for whatever is on the stage. Only the pixels change:
     // the framing, the springs and the frame itself never hear about it.
-    setAdjust(adjust) {
+    setAdjust(adjust: Adjustment): void {
       const next = filterFor(adjust);
       if (next === filter) return;
       filter = next;
       loop.kick();
     },
-    setTarget(w, h) {
+    setTarget(w: number, h: number): void {
       targetW = w;
       targetH = h;
       aspect = w / h;
@@ -473,7 +507,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     },
     // The fit toggle. Only the magnification changes: the crop is carried across
     // the morph untouched.
-    setFit(on) {
+    setFit(on: boolean): void {
       if (fitMode === on) return;
       fitMode = on;
       morph = image ? readFraming() : null;
@@ -483,19 +517,19 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     isFit: () => fitMode,
     // 1 while the frame is at true size; below 1 once the stage has capped it.
     getFrameScale: () => frameScale,
-    nudge(dx, dy) {
+    nudge(dx: number, dy: number): void {
       if (!image) return;
       beginInteraction();
       panBy(dx, dy);
       settle();
-      clearTimeout(wheelIdle);
+      if (wheelIdle !== null) clearTimeout(wheelIdle);
       wheelIdle = setTimeout(endInteraction, 400);
       loop.kick();
     },
-    zoomBy(factor) {
+    zoomBy(factor: number): void {
       beginInteraction();
       zoomAt(factor, vw / 2, vh / 2);
-      clearTimeout(wheelIdle);
+      if (wheelIdle !== null) clearTimeout(wheelIdle);
       wheelIdle = setTimeout(endInteraction, 400);
       loop.kick();
     },

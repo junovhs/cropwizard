@@ -1,0 +1,20 @@
+{
+  "name": "cropwizard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "typecheck": "tsc --noEmit",
+    "build:ts": "tsc",
+    "build:static": "node scripts/build-static.mjs",
+    "build": "npm run clean && npm run build:ts && npm run build:static",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "serve": "node scripts/serve.mjs",
+    "dev": "npm run build && node scripts/serve.mjs",
+    "check": "npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

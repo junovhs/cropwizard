@@ -1,27 +1,27 @@
 // A dependency-free ZIP writer, store mode only.
-//
-// PNG, JPEG and WebP are already compressed; deflating them again buys nothing
-// and would cost an entire compressor. Storing means the whole writer is a few
-// headers and a CRC — no library, no build step, no supply chain.
+
+export interface ZipEntry {
+  readonly name: string;
+  readonly blob: Blob;
+}
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
+  for (let i = 0; i < 256; i += 1) {
     let c = i;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
     table[i] = c >>> 0;
   }
   return table;
 })();
 
-function crc32(bytes) {
+function crc32(bytes: Uint8Array): number {
   let c = 0xffffffff;
-  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  for (const byte of bytes) c = (CRC_TABLE[(c ^ byte) & 0xff] ?? 0) ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
 
-// ZIP still carries MS-DOS timestamps: 2-second resolution, 1980 epoch.
-function dosStamp(date) {
+function dosStamp(date: Date): { readonly time: number; readonly date: number } {
   const year = Math.max(1980, date.getFullYear());
   return {
     time: (date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1),
@@ -29,15 +29,11 @@ function dosStamp(date) {
   };
 }
 
-/**
- * @param {Array<{name: string, blob: Blob}>} entries
- * @returns {Promise<Blob>} a ZIP archive
- */
-export async function makeZip(entries) {
+export async function makeZip(entries: readonly ZipEntry[]): Promise<Blob> {
   const encoder = new TextEncoder();
   const stamp = dosStamp(new Date());
-  const parts = [];       // the streamed file section
-  const central = [];     // central directory records, written after
+  const parts: BlobPart[] = [];
+  const central: BlobPart[] = [];
   let offset = 0;
 
   for (const entry of entries) {
@@ -46,10 +42,10 @@ export async function makeZip(entries) {
     const crc = crc32(body);
 
     const local = new DataView(new ArrayBuffer(30));
-    local.setUint32(0, 0x04034b50, true);   // local file header
-    local.setUint16(4, 20, true);           // version needed
-    local.setUint16(6, 0x0800, true);       // UTF-8 names
-    local.setUint16(8, 0, true);            // stored
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);
+    local.setUint16(6, 0x0800, true);
+    local.setUint16(8, 0, true);
     local.setUint16(10, stamp.time, true);
     local.setUint16(12, stamp.date, true);
     local.setUint32(14, crc, true);
@@ -60,9 +56,9 @@ export async function makeZip(entries) {
     parts.push(new Uint8Array(local.buffer), name, body);
 
     const dir = new DataView(new ArrayBuffer(46));
-    dir.setUint32(0, 0x02014b50, true);     // central directory header
-    dir.setUint16(4, 20, true);             // version made by
-    dir.setUint16(6, 20, true);             // version needed
+    dir.setUint32(0, 0x02014b50, true);
+    dir.setUint16(4, 20, true);
+    dir.setUint16(6, 20, true);
     dir.setUint16(8, 0x0800, true);
     dir.setUint16(10, 0, true);
     dir.setUint16(12, stamp.time, true);
@@ -71,15 +67,15 @@ export async function makeZip(entries) {
     dir.setUint32(20, body.length, true);
     dir.setUint32(24, body.length, true);
     dir.setUint16(28, name.length, true);
-    dir.setUint32(42, offset, true);        // offset of the local header
+    dir.setUint32(42, offset, true);
     central.push(new Uint8Array(dir.buffer), name);
 
     offset += 30 + name.length + body.length;
   }
 
-  const centralSize = central.reduce((n, part) => n + part.length, 0);
+  const centralSize = central.reduce((sum, part) => sum + (part instanceof Uint8Array ? part.byteLength : 0), 0);
   const end = new DataView(new ArrayBuffer(22));
-  end.setUint32(0, 0x06054b50, true);       // end of central directory
+  end.setUint32(0, 0x06054b50, true);
   end.setUint16(8, entries.length, true);
   end.setUint16(10, entries.length, true);
   end.setUint32(12, centralSize, true);
