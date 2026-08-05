@@ -1,373 +1,301 @@
 // The size catalogue.
 //
-// `keywords` is the whole trick. People do not search for "Instagram Portrait Post" — 
-// they search for "ig tall", "4x5", "the one that takes up more feed", "pfp", "thumbnail".
-// Every way a marketer, developer, or creator might query a size lives here.
+// Search stays deliberately dumb: each preset carries marketer language,
+// platform slang, format names, ratios, and use-case aliases. The builder
+// also adds the preset id, group, name, orientation, and common dimension
+// spellings automatically.
 
-export const PRESETS = [
-  // ==========================================
-  // ---- INSTAGRAM ----
-  // ==========================================
-  { id: 'ig-square', group: 'Instagram', name: 'Square post', w: 1080, h: 1080, hot: true,
-    keywords: ['ig', 'insta', 'instagram', 'square', 'feed', '1:1', '1x1', 'grid', 'carousel', 'post'] },
-  { id: 'ig-portrait', group: 'Instagram', name: 'Portrait post', w: 1080, h: 1350, hot: true,
-    keywords: ['ig', 'insta', 'instagram', 'tall', 'portrait', 'vertical', '4:5', '4x5', 'feed', 'carousel', 'biggest', 'more feed', 'takes up feed', 'optimum feed'] },
-  { id: 'ig-landscape', group: 'Instagram', name: 'Landscape post', w: 1080, h: 566,
-    keywords: ['ig', 'insta', 'instagram', 'wide', 'landscape', 'horizontal', 'feed', '1.91:1'] },
-  { id: 'ig-story', group: 'Instagram', name: 'Story / Reel', w: 1080, h: 1920, hot: true,
-    keywords: ['ig', 'insta', 'instagram', 'story', 'stories', 'reel', 'reels', 'vertical', 'fullscreen', 'full screen', '9:16', '9x16', 'phone', 'video'] },
-  { id: 'ig-profile', group: 'Instagram', name: 'Profile picture', w: 320, h: 320,
-    keywords: ['ig', 'insta', 'instagram', 'profile', 'avatar', 'pfp', 'headshot', 'dp', 'icon', 'account photo'] },
-  { id: 'ig-highlight', group: 'Instagram', name: 'Highlight cover', w: 1080, h: 1920,
-    keywords: ['ig', 'insta', 'instagram', 'highlight', 'cover', 'story highlight', 'icon cover'] },
-  { id: 'ig-broadcast', group: 'Instagram', name: 'Broadcast channel header', w: 1080, h: 600,
-    keywords: ['ig', 'insta', 'instagram', 'broadcast', 'channel', 'header', 'banner'] },
-  { id: 'ig-grid-3x1', group: 'Instagram', name: 'Grid banner (3x1)', w: 3240, h: 1080,
-    keywords: ['ig', 'insta', 'instagram', 'grid', 'banner', '3x1', 'triple post', 'panoramic'] },
+const enrichPreset = ({ id, group, name, w, h, hot = false, keywords }) => {
+  const orientation = w === h
+    ? ['square']
+    : w > h
+      ? ['landscape', 'horizontal', 'wide']
+      : ['portrait', 'vertical', 'tall'];
 
-  // ==========================================
-  // ---- TIKTOK ----
-  // ==========================================
-  { id: 'tiktok-video', group: 'TikTok', name: 'Vertical video / Cover', w: 1080, h: 1920, hot: true,
-    keywords: ['tiktok', 'tik tok', 'video', 'vertical', 'fullscreen', '9:16', '9x16', 'cover', 'shorts', 'tok', 'feed'] },
-  { id: 'tiktok-photo', group: 'TikTok', name: 'Photo mode / Carousel', w: 1080, h: 1440, hot: true,
-    keywords: ['tiktok', 'tik tok', 'photo mode', 'carousel', '3:4', '3x4', 'slideshow', 'image post'] },
-  { id: 'tiktok-profile', group: 'TikTok', name: 'Profile picture', w: 200, h: 200,
-    keywords: ['tiktok', 'tik tok', 'profile', 'avatar', 'pfp', 'dp', 'icon'] },
-  { id: 'tiktok-series', group: 'TikTok', name: 'Series cover', w: 1080, h: 1440,
-    keywords: ['tiktok', 'tik tok', 'series', 'paywall', 'cover', 'course cover'] },
-  { id: 'tiktok-live-cover', group: 'TikTok', name: 'LIVE event cover', w: 1080, h: 1080,
-    keywords: ['tiktok', 'tik tok', 'live', 'event', 'stream', 'cover'] },
+  return {
+    id,
+    group,
+    name,
+    w,
+    h,
+    ...(hot ? { hot: true } : {}),
+    keywords: [...new Set([
+      group.toLowerCase(),
+      name.toLowerCase(),
+      id.replace(/-/g, ' '),
+      ...orientation,
+      ...keywords.split('|'),
+      `${w}x${h}`,
+      `${w} x ${h}`,
+      `${w}×${h}`,
+      `${w} by ${h}`,
+      `${w}px x ${h}px`,
+      `${w} ${h}`,
+    ])],
+  };
+};
 
-  // ==========================================
-  // ---- FACEBOOK ----
-  // ==========================================
-  { id: 'fb-feed', group: 'Facebook', name: 'Feed / Shared link', w: 1200, h: 630, hot: true,
-    keywords: ['fb', 'facebook', 'feed', 'link', 'shared link', 'share', 'post', 'meta', '1.91:1'] },
-  { id: 'fb-square', group: 'Facebook', name: 'Square post', w: 1080, h: 1080,
-    keywords: ['fb', 'facebook', 'square', 'post', 'feed', '1:1'] },
-  { id: 'fb-story', group: 'Facebook', name: 'Story / Reel', w: 1080, h: 1920,
-    keywords: ['fb', 'facebook', 'story', 'stories', 'reel', 'vertical', '9:16'] },
-  { id: 'fb-cover', group: 'Facebook', name: 'Personal profile cover', w: 851, h: 315,
-    keywords: ['fb', 'facebook', 'cover', 'banner', 'header', 'profile header'] },
-  { id: 'fb-page-cover', group: 'Facebook', name: 'Business page cover', w: 820, h: 312,
-    keywords: ['fb', 'facebook', 'page', 'business', 'cover', 'banner', 'header'] },
-  { id: 'fb-group-cover', group: 'Facebook', name: 'Group banner', w: 1640, h: 856, hot: true,
-    keywords: ['fb', 'facebook', 'group', 'cover', 'banner', 'header', 'community'] },
-  { id: 'fb-event', group: 'Facebook', name: 'Event cover', w: 1920, h: 1005,
-    keywords: ['fb', 'facebook', 'event', 'cover', 'banner', 'header'] },
-  { id: 'fb-profile', group: 'Facebook', name: 'Profile photo', w: 320, h: 320,
-    keywords: ['fb', 'facebook', 'profile', 'avatar', 'pfp', 'dp'] },
-  { id: 'fb-marketplace', group: 'Facebook', name: 'Marketplace listing', w: 1024, h: 1024,
-    keywords: ['fb', 'facebook', 'marketplace', 'listing', 'item photo', 'sell', 'square'] },
+// Tuple shape: [id, group, name, width, height, hot, pipe-delimited keywords]
+const RAW_PRESETS = [
+  // ---- Instagram ----
+  ["ig-square", "Instagram", "Square post", 1080, 1080, true, "ig|insta|instagram|square|feed|post|1:1|grid|carousel|album"],
+  ["ig-portrait", "Instagram", "Portrait post", 1080, 1350, true, "ig|insta|instagram|tall|portrait|vertical|4:5|feed|carousel|biggest|more feed|takes up more feed"],
+  ["ig-landscape", "Instagram", "Landscape post", 1080, 566, false, "ig|insta|instagram|wide|landscape|horizontal|feed|1.91:1"],
+  ["ig-story", "Instagram", "Story", 1080, 1920, true, "ig|insta|instagram|story|stories|vertical|fullscreen|full screen|9:16|phone"],
+  ["ig-reel", "Instagram", "Reel", 1080, 1920, true, "ig|insta|instagram|reel|reels|vertical video|short video|fullscreen|9:16"],
+  ["ig-reel-cover", "Instagram", "Reel cover", 1080, 1920, false, "ig|insta|instagram|reel cover|reels cover|cover|thumbnail|poster frame"],
+  ["ig-highlight", "Instagram", "Highlight cover", 1080, 1080, false, "ig|insta|instagram|highlight|highlights|story highlight|cover|icon|circle"],
+  ["ig-profile", "Instagram", "Profile picture", 320, 320, false, "ig|insta|instagram|profile|avatar|pfp|headshot|dp|display picture"],
+  ["ig-ad-square", "Instagram", "Square ad", 1080, 1080, false, "ig|instagram|ad|ads|paid social|sponsored|square ad|1:1"],
+  ["ig-ad-portrait", "Instagram", "Portrait ad", 1080, 1350, false, "ig|instagram|ad|ads|paid social|sponsored|portrait ad|4:5"],
 
-  // ==========================================
-  // ---- X / TWITTER ----
-  // ==========================================
-  { id: 'x-post', group: 'X / Twitter', name: 'Post image (16:9)', w: 1600, h: 900, hot: true,
-    keywords: ['x', 'twitter', 'tweet', 'post', 'timeline', 'card', '16:9', '16x9', 'landscape'] },
-  { id: 'x-square', group: 'X / Twitter', name: 'Square post', w: 1080, h: 1080,
-    keywords: ['x', 'twitter', 'tweet', 'square', 'post', '1:1'] },
-  { id: 'x-header', group: 'X / Twitter', name: 'Profile header', w: 1500, h: 500, hot: true,
-    keywords: ['x', 'twitter', 'header', 'banner', 'cover', 'profile banner', '3:1'] },
-  { id: 'x-profile', group: 'X / Twitter', name: 'Profile picture', w: 400, h: 400,
-    keywords: ['x', 'twitter', 'profile', 'avatar', 'pfp', 'icon', 'dp'] },
-  { id: 'x-card-summary', group: 'X / Twitter', name: 'Summary card thumbnail', w: 240, h: 240,
-    keywords: ['x', 'twitter', 'summary card', 'thumbnail', 'link icon', 'meta'] },
+  // ---- Threads ----
+  ["threads-square", "Threads", "Square post", 1080, 1080, false, "threads|meta threads|square|post|feed|1:1"],
+  ["threads-portrait", "Threads", "Portrait post", 1080, 1350, false, "threads|meta threads|portrait|tall|vertical|post|feed|4:5"],
+  ["threads-landscape", "Threads", "Landscape post", 1080, 566, false, "threads|meta threads|landscape|wide|horizontal|post|feed"],
+  ["threads-profile", "Threads", "Profile picture", 320, 320, false, "threads|meta threads|profile|avatar|pfp|display picture"],
 
-  // ==========================================
-  // ---- LINKEDIN ----
-  // ==========================================
-  { id: 'li-post', group: 'LinkedIn', name: 'Feed post (1.91:1)', w: 1200, h: 627,
-    keywords: ['linkedin', 'li', 'post', 'feed', 'share', 'link', 'landscape'] },
-  { id: 'li-square', group: 'LinkedIn', name: 'Square post', w: 1080, h: 1080,
-    keywords: ['linkedin', 'li', 'square', 'post', '1:1'] },
-  { id: 'li-portrait', group: 'LinkedIn', name: 'Carousel / Document PDF', w: 1080, h: 1350, hot: true,
-    keywords: ['linkedin', 'li', 'carousel', 'pdf', 'document', 'tall', 'portrait', '4:5', '4x5', 'slides', 'swipe'] },
-  { id: 'li-cover', group: 'LinkedIn', name: 'Personal profile background', w: 1584, h: 396, hot: true,
-    keywords: ['linkedin', 'li', 'cover', 'banner', 'header', 'background', 'personal cover'] },
-  { id: 'li-company', group: 'LinkedIn', name: 'Company page banner', w: 1128, h: 191,
-    keywords: ['linkedin', 'li', 'company', 'page', 'banner', 'header', 'business cover'] },
-  { id: 'li-event', group: 'LinkedIn', name: 'Event cover', w: 1600, h: 900,
-    keywords: ['linkedin', 'li', 'event', 'cover', 'banner', 'header', '16:9'] },
-  { id: 'li-profile', group: 'LinkedIn', name: 'Profile photo', w: 400, h: 400,
-    keywords: ['linkedin', 'li', 'profile', 'headshot', 'avatar', 'pfp', 'dp'] },
-  { id: 'li-article', group: 'LinkedIn', name: 'Article cover photo', w: 1280, h: 720,
-    keywords: ['linkedin', 'li', 'article', 'newsletter cover', 'header', 'blog post'] },
+  // ---- TikTok ----
+  ["tiktok-video", "TikTok", "Vertical video", 1080, 1920, true, "tiktok|tik tok|video|vertical|fullscreen|full screen|9:16|short video|for you|fyp"],
+  ["tiktok-cover", "TikTok", "Video cover", 1080, 1920, false, "tiktok|tik tok|cover|thumbnail|video cover|poster|poster frame"],
+  ["tiktok-carousel", "TikTok", "Photo carousel", 1080, 1920, false, "tiktok|tik tok|photo mode|carousel|slideshow|photos|vertical|9:16"],
+  ["tiktok-square", "TikTok", "Square video", 1080, 1080, false, "tiktok|tik tok|square|video|1:1"],
+  ["tiktok-landscape", "TikTok", "Landscape video", 1920, 1080, false, "tiktok|tik tok|landscape|horizontal|wide|video|16:9"],
+  ["tiktok-profile", "TikTok", "Profile picture", 200, 200, false, "tiktok|tik tok|profile|avatar|pfp|display picture"],
+  ["tiktok-ad-square", "TikTok", "Carousel ad — square", 640, 640, false, "tiktok|tik tok|ad|ads|carousel ad|square ad|1:1|paid social"],
+  ["tiktok-ad-landscape", "TikTok", "Carousel ad — landscape", 1200, 628, false, "tiktok|tik tok|ad|ads|carousel ad|landscape ad|horizontal|1.91:1|paid social"],
 
-  // ==========================================
-  // ---- YOUTUBE ----
-  // ==========================================
-  { id: 'yt-thumb', group: 'YouTube', name: 'Video thumbnail', w: 1280, h: 720, hot: true,
-    keywords: ['youtube', 'yt', 'thumb', 'thumbnail', 'video', '16:9', '16x9', 'preview', 'clickbait', 'cover', '720p'] },
-  { id: 'yt-banner', group: 'YouTube', name: 'Channel banner / TV art', w: 2560, h: 1440, hot: true,
-    keywords: ['youtube', 'yt', 'banner', 'channel', 'art', 'cover', 'header', 'tv banner', 'desktop banner'] },
-  { id: 'yt-shorts', group: 'YouTube', name: 'Shorts', w: 1080, h: 1920, hot: true,
-    keywords: ['youtube', 'yt', 'shorts', 'short', 'vertical', '9:16', '9x16', 'reel'] },
-  { id: 'yt-profile', group: 'YouTube', name: 'Channel profile picture', w: 800, h: 800,
-    keywords: ['youtube', 'yt', 'profile', 'avatar', 'pfp', 'channel icon', 'logo'] },
-  { id: 'yt-watermark', group: 'YouTube', name: 'Video branding watermark', w: 150, h: 150,
-    keywords: ['youtube', 'yt', 'watermark', 'subscribe button', 'branding icon', 'corner logo'] },
-  { id: 'yt-community', group: 'YouTube', name: 'Community post', w: 1080, h: 1080,
-    keywords: ['youtube', 'yt', 'community', 'post', 'square', 'tab'] },
+  // ---- Facebook ----
+  ["fb-feed", "Facebook", "Feed / link image", 1200, 630, true, "fb|facebook|feed|link|shared link|share|post|meta|link image|website preview"],
+  ["fb-square", "Facebook", "Square post", 1080, 1080, false, "fb|facebook|square|post|feed|1:1"],
+  ["fb-portrait", "Facebook", "Portrait post", 1080, 1350, false, "fb|facebook|portrait|tall|vertical|post|feed|4:5"],
+  ["fb-story", "Facebook", "Story", 1080, 1920, false, "fb|facebook|story|stories|vertical|fullscreen|9:16"],
+  ["fb-reel", "Facebook", "Reel", 1080, 1920, false, "fb|facebook|reel|reels|vertical video|short video|9:16"],
+  ["fb-cover", "Facebook", "Page cover", 1640, 624, false, "fb|facebook|cover|banner|header|page|business page|timeline cover"],
+  ["fb-profile", "Facebook", "Profile picture", 320, 320, false, "fb|facebook|profile|avatar|pfp|display picture|page logo"],
+  ["fb-event", "Facebook", "Event cover", 1920, 1005, false, "fb|facebook|event|cover|banner|event image|event header"],
+  ["fb-group-cover", "Facebook", "Group cover", 1640, 856, false, "fb|facebook|group|community|cover|banner|header"],
+  ["fb-carousel", "Facebook", "Carousel card", 1080, 1080, false, "fb|facebook|carousel|card|multi image|ad|square|1:1"],
+  ["fb-marketplace", "Facebook", "Marketplace listing", 1200, 1200, false, "fb|facebook|marketplace|listing|product|commerce|shop|square"],
 
-  // ==========================================
-  // ---- PINTEREST ----
-  // ==========================================
-  { id: 'pin-standard', group: 'Pinterest', name: 'Standard pin (2:3)', w: 1000, h: 1500, hot: true,
-    keywords: ['pinterest', 'pin', 'tall', '2:3', '2x3', 'vertical', 'standard pin'] },
-  { id: 'pin-square', group: 'Pinterest', name: 'Square pin', w: 1000, h: 1000,
-    keywords: ['pinterest', 'pin', 'square', '1:1'] },
-  { id: 'pin-long', group: 'Pinterest', name: 'Long pin / Infographic', w: 1000, h: 2100,
-    keywords: ['pinterest', 'pin', 'long', 'tall', 'infographic', 'tall pin', '1:2.1'] },
-  { id: 'pin-idea', group: 'Pinterest', name: 'Idea pin / Story', w: 1080, h: 1920,
-    keywords: ['pinterest', 'pin', 'idea pin', 'story pin', 'vertical', '9:16', 'video pin'] },
-  { id: 'pin-board', group: 'Pinterest', name: 'Board display cover', w: 600, h: 600,
-    keywords: ['pinterest', 'pin', 'board', 'cover', 'display', 'album cover'] },
+  // ---- Messenger ----
+  ["messenger-story", "Messenger", "Story ad", 1080, 1920, false, "messenger|facebook messenger|story|story ad|vertical ad|fullscreen|9:16"],
+  ["messenger-inbox-ad", "Messenger", "Inbox ad", 1200, 628, false, "messenger|facebook messenger|inbox ad|sponsored|ad|landscape|1.91:1"],
+  ["messenger-profile", "Messenger", "Profile picture", 640, 640, false, "messenger|facebook messenger|profile|avatar|pfp|display picture"],
 
-  // ==========================================
-  // ---- TWITCH & STREAMING ----
-  // ==========================================
-  { id: 'twitch-offline', group: 'Twitch', name: 'Offline screen banner', w: 1920, h: 1080, hot: true,
-    keywords: ['twitch', 'stream', 'offline', 'screen', 'banner', '16:9', 'overlay', 'brb screen'] },
-  { id: 'twitch-banner', group: 'Twitch', name: 'Profile banner', w: 1200, h: 480,
-    keywords: ['twitch', 'stream', 'header', 'banner', 'profile header'] },
-  { id: 'twitch-panel', group: 'Twitch', name: 'Info panel button', w: 320, h: 160,
-    keywords: ['twitch', 'stream', 'panel', 'about', 'bio', 'button', 'donate', 'specs', 'schedule'] },
-  { id: 'twitch-emote', group: 'Twitch', name: 'Emote (HD)', w: 512, h: 512,
-    keywords: ['twitch', 'stream', 'emote', 'emoticon', 'sub emote', 'channel emote', 'discord emote'] },
-  { id: 'twitch-badge', group: 'Twitch', name: 'Subscriber badge (HD)', w: 72, h: 72,
-    keywords: ['twitch', 'badge', 'sub badge', 'loyalty badge', 'bit badge'] },
-  { id: 'kick-banner', group: 'Kick Streaming', name: 'Channel banner', w: 1920, h: 1080,
-    keywords: ['kick', 'stream', 'streaming', 'banner', 'header', 'channel art'] },
-  { id: 'kick-avatar', group: 'Kick Streaming', name: 'Profile photo', w: 512, h: 512,
-    keywords: ['kick', 'profile', 'avatar', 'pfp', 'streamer logo'] },
+  // ---- X / Twitter ----
+  ["x-post", "X / Twitter", "Post image", 1600, 900, true, "x|twitter|tweet|post|timeline|card|16:9|landscape|wide"],
+  ["x-square", "X / Twitter", "Square post", 1080, 1080, false, "x|twitter|tweet|square|post|1:1"],
+  ["x-portrait", "X / Twitter", "Portrait post", 1080, 1350, false, "x|twitter|tweet|portrait|tall|vertical|post|4:5"],
+  ["x-header", "X / Twitter", "Profile header", 1500, 500, false, "x|twitter|header|banner|cover|profile|3:1"],
+  ["x-profile", "X / Twitter", "Profile picture", 400, 400, false, "x|twitter|profile|avatar|pfp|display picture"],
+  ["x-website-card", "X / Twitter", "Website card", 1200, 628, false, "x|twitter|website card|link card|link preview|summary card|large image|1.91:1"],
+  ["x-ad-portrait", "X / Twitter", "Portrait ad", 1080, 1350, false, "x|twitter|ad|ads|sponsored|paid social|portrait ad|4:5"],
 
-  // ==========================================
-  // ---- MESSAGING & DISCORD ----
-  // ==========================================
-  { id: 'discord-pfp', group: 'Discord', name: 'User avatar', w: 512, h: 512, hot: true,
-    keywords: ['discord', 'pfp', 'avatar', 'profile', 'icon', 'nitro', 'user photo'] },
-  { id: 'discord-banner', group: 'Discord', name: 'User Nitro banner', w: 960, h: 540, hot: true,
-    keywords: ['discord', 'banner', 'profile header', 'nitro banner', '16:9'] },
-  { id: 'discord-server-banner', group: 'Discord', name: 'Server banner', w: 960, h: 540,
-    keywords: ['discord', 'server banner', 'header', 'community banner', 'splash'] },
-  { id: 'discord-server-icon', group: 'Discord', name: 'Server icon', w: 512, h: 512,
-    keywords: ['discord', 'server icon', 'guild logo', 'server avatar'] },
-  { id: 'whatsapp-pfp', group: 'Messaging', name: 'WhatsApp profile photo', w: 500, h: 500,
-    keywords: ['whatsapp', 'wa', 'pfp', 'avatar', 'dp', 'profile', 'icon'] },
-  { id: 'whatsapp-status', group: 'Messaging', name: 'WhatsApp Status / Story', w: 1080, h: 1920,
-    keywords: ['whatsapp', 'wa', 'status', 'story', 'vertical', '9:16'] },
-  { id: 'telegram-pfp', group: 'Messaging', name: 'Telegram profile photo', w: 512, h: 512,
-    keywords: ['telegram', 'tg', 'pfp', 'avatar', 'dp', 'profile photo'] },
-  { id: 'telegram-channel', group: 'Messaging', name: 'Telegram channel cover', w: 1280, h: 720,
-    keywords: ['telegram', 'tg', 'channel cover', 'banner', 'header'] },
+  // ---- LinkedIn ----
+  ["li-post", "LinkedIn", "Feed / link post", 1200, 627, true, "linkedin|li|post|feed|share|link|article|1.91:1|b2b"],
+  ["li-square", "LinkedIn", "Square post", 1080, 1080, false, "linkedin|li|square|post|feed|carousel|document|1:1"],
+  ["li-portrait", "LinkedIn", "Portrait post", 1080, 1350, false, "linkedin|li|portrait|tall|vertical|post|feed|document|4:5"],
+  ["li-profile", "LinkedIn", "Profile picture", 400, 400, false, "linkedin|li|profile|headshot|avatar|pfp|professional photo"],
+  ["li-cover", "LinkedIn", "Profile cover", 1584, 396, false, "linkedin|li|cover|banner|header|background|personal profile|4:1"],
+  ["li-company-logo", "LinkedIn", "Company logo", 400, 400, false, "linkedin|li|company|page|logo|brand|avatar|square"],
+  ["li-company", "LinkedIn", "Company page cover", 1128, 191, false, "linkedin|li|company|page|cover|banner|header|business page"],
+  ["li-event", "LinkedIn", "Event cover", 1776, 444, false, "linkedin|li|event|cover|banner|header|4:1"],
+  ["li-life-main", "LinkedIn", "Life tab main image", 1128, 376, false, "linkedin|li|life tab|career page|employer brand|main image|3:1"],
+  ["li-life-module", "LinkedIn", "Life tab custom module", 502, 282, false, "linkedin|li|life tab|career page|custom module|module image|16:9"],
+  ["li-article-cover", "LinkedIn", "Article cover", 1280, 720, false, "linkedin|li|article|newsletter|cover|hero|featured image|16:9"],
+  ["li-message-ad", "LinkedIn", "Message ad image", 300, 250, false, "linkedin|li|message ad|conversation ad|sponsored message|inmail|medium rectangle"],
 
-  // ==========================================
-  // ---- AUDIO & PODCASTS ----
-  // ==========================================
-  { id: 'podcast-cover', group: 'Audio & Podcasts', name: 'Podcast cover art', w: 3000, h: 3000, hot: true,
-    keywords: ['podcast', 'pod', 'apple podcast', 'spotify podcast', 'cover', 'show art', 'album art', 'square', '3000x3000'] },
-  { id: 'spotify-canvas', group: 'Audio & Podcasts', name: 'Spotify Canvas video/art', w: 1080, h: 1920, hot: true,
-    keywords: ['spotify', 'canvas', 'song', 'music', 'album', 'track', 'vertical', 'loop', '9:16'] },
-  { id: 'spotify-header', group: 'Audio & Podcasts', name: 'Spotify Artist header', w: 2660, h: 1140,
-    keywords: ['spotify', 'artist', 'header', 'banner', 'cover', 'music artist'] },
-  { id: 'spotify-playlist', group: 'Audio & Podcasts', name: 'Spotify Playlist cover', w: 300, h: 300,
-    keywords: ['spotify', 'playlist', 'cover art', 'music collection', 'square'] },
-  { id: 'soundcloud-banner', group: 'Audio & Podcasts', name: 'SoundCloud profile header', w: 2480, h: 520,
-    keywords: ['soundcloud', 'banner', 'header', 'profile background', 'audio'] },
+  // ---- YouTube ----
+  ["yt-thumb", "YouTube", "Video thumbnail", 1280, 720, true, "youtube|yt|thumb|thumbnail|video|16:9|preview|cover"],
+  ["yt-shorts", "YouTube", "Shorts video", 1080, 1920, true, "youtube|yt|shorts|short|vertical|9:16|short video"],
+  ["yt-shorts-thumb", "YouTube", "Shorts thumbnail", 2160, 3840, false, "youtube|yt|shorts thumbnail|shorts cover|vertical thumbnail|9:16"],
+  ["yt-banner", "YouTube", "Channel banner", 2560, 1440, false, "youtube|yt|banner|channel|art|cover|header|tv"],
+  ["yt-profile", "YouTube", "Channel profile picture", 800, 800, false, "youtube|yt|channel icon|profile|avatar|pfp|logo"],
+  ["yt-watermark", "YouTube", "Video watermark", 150, 150, false, "youtube|yt|watermark|subscribe button|branding|channel watermark|logo"],
+  ["yt-community-square", "YouTube", "Community post — square", 1080, 1080, false, "youtube|yt|community|community post|square|post|1:1"],
+  ["yt-community-portrait", "YouTube", "Community post — portrait", 1080, 1350, false, "youtube|yt|community|community post|portrait|vertical|4:5"],
+  ["yt-podcast", "YouTube", "Podcast cover", 3000, 3000, false, "youtube|yt|podcast|podcast cover|show art|album art|square"],
 
-  // ==========================================
-  // ---- WORKSPACE & CREATOR PLATFORMS ----
-  // ==========================================
-  { id: 'notion-cover', group: 'Workspace & Creative', name: 'Notion page cover', w: 1500, h: 600, hot: true,
-    keywords: ['notion', 'page cover', 'workspace banner', 'header', 'notion header', '5:2'] },
-  { id: 'zoom-background', group: 'Workspace & Creative', name: 'Zoom / Teams background', w: 1920, h: 1080, hot: true,
-    keywords: ['zoom', 'teams', 'google meet', 'virtual background', 'backdrop', 'office background', '16:9'] },
-  { id: 'dribbble-shot', group: 'Workspace & Creative', name: 'Dribbble shot', w: 1600, h: 1200, hot: true,
-    keywords: ['dribbble', 'shot', 'portfolio', 'design post', '4:3', '4x3'] },
-  { id: 'behance-cover', group: 'Workspace & Creative', name: 'Behance project cover', w: 808, h: 632,
-    keywords: ['behance', 'project cover', 'portfolio thumbnail', 'case study'] },
-  { id: 'figma-community', group: 'Workspace & Creative', name: 'Figma Community thumbnail', w: 1920, h: 960,
-    keywords: ['figma', 'community cover', 'plugin cover', 'file cover', '2:1'] },
-  { id: 'patreon-banner', group: 'Workspace & Creative', name: 'Patreon cover banner', w: 1600, h: 400,
-    keywords: ['patreon', 'banner', 'cover', 'membership', 'header', '4:1'] },
-  { id: 'substack-header', group: 'Workspace & Creative', name: 'Substack publication logo/header', w: 1456, h: 1048,
-    keywords: ['substack', 'newsletter', 'header', 'banner', 'article cover'] },
-  { id: 'medium-header', group: 'Workspace & Creative', name: 'Medium article header', w: 1200, h: 630,
-    keywords: ['medium', 'blog', 'story header', 'featured image'] },
+  // ---- Pinterest ----
+  ["pin-standard", "Pinterest", "Standard pin", 1000, 1500, true, "pinterest|pin|tall|2:3|vertical|standard pin"],
+  ["pin-square", "Pinterest", "Square pin", 1000, 1000, false, "pinterest|pin|square|1:1"],
+  ["pin-portrait", "Pinterest", "Portrait pin", 1000, 1250, false, "pinterest|pin|portrait|4:5|vertical"],
+  ["pin-long", "Pinterest", "Long pin", 1000, 2100, false, "pinterest|pin|long|tall|infographic|extended pin"],
+  ["pin-video", "Pinterest", "Full-screen video pin", 1080, 1920, false, "pinterest|pin|video pin|vertical video|full bleed|fullscreen|9:16"],
+  ["pin-cover", "Pinterest", "Profile cover", 1600, 900, false, "pinterest|pin|profile cover|cover|banner|header|16:9"],
+  ["pin-profile", "Pinterest", "Profile picture", 280, 280, false, "pinterest|pin|profile|avatar|pfp|display picture"],
 
-  // ==========================================
-  // ---- GAMING & DISTRIBUTION ----
-  // ==========================================
-  { id: 'steam-capsule-main', group: 'Gaming', name: 'Steam Store main capsule', w: 1232, h: 706, hot: true,
-    keywords: ['steam', 'capsule', 'store capsule', 'game cover', 'valve', 'store banner'] },
-  { id: 'steam-capsule-library', group: 'Gaming', name: 'Steam Library vertical cover', w: 600, h: 900, hot: true,
-    keywords: ['steam', 'library cover', 'vertical capsule', 'box art', 'game grid', '2:3'] },
-  { id: 'steam-header', group: 'Gaming', name: 'Steam Store header capsule', w: 460, h: 215,
-    keywords: ['steam', 'header capsule', 'game banner', 'small banner'] },
-  { id: 'roblox-shirt', group: 'Gaming', name: 'Roblox Clothing template', w: 585, h: 559,
-    keywords: ['roblox', 'shirt', 'pants', 'clothing template', 'outfit'] },
-  { id: 'roblox-game-icon', group: 'Gaming', name: 'Roblox Experience icon', w: 512, h: 512,
-    keywords: ['roblox', 'game icon', 'experience logo', 'thumbnail'] },
+  // ---- Snapchat ----
+  ["snap-story", "Snapchat", "Story / Snap", 1080, 1920, false, "snapchat|snap|story|snap|vertical|fullscreen|9:16"],
+  ["snap-ad", "Snapchat", "Single image or video ad", 1080, 1920, false, "snapchat|snap|ad|ads|sponsored|vertical ad|9:16"],
+  ["snap-filter", "Snapchat", "Geofilter", 1080, 2340, false, "snapchat|snap|geofilter|filter|overlay|location filter"],
+  ["snap-profile", "Snapchat", "Public profile picture", 320, 320, false, "snapchat|snap|profile|avatar|pfp|public profile"],
+  ["snap-lens-icon", "Snapchat", "Lens icon", 320, 320, false, "snapchat|snap|lens|lens icon|filter icon|ar lens"],
 
-  // ==========================================
-  // ---- ALTERNATIVE & EMERGING SOCIAL ----
-  // ==========================================
-  { id: 'bluesky-post', group: 'Emerging Social', name: 'Bluesky post card', w: 1200, h: 630,
-    keywords: ['bluesky', 'bsky', 'post', 'card', 'link preview', 'feed'] },
-  { id: 'bluesky-header', group: 'Emerging Social', name: 'Bluesky profile header', w: 1500, h: 500,
-    keywords: ['bluesky', 'bsky', 'header', 'banner', 'profile background'] },
-  { id: 'mastodon-header', group: 'Emerging Social', name: 'Mastodon profile banner', w: 1500, h: 500,
-    keywords: ['mastodon', 'fediverse', 'banner', 'header'] },
-  { id: 'lemon8-post', group: 'Emerging Social', name: 'Lemon8 portrait post', w: 1080, h: 1440,
-    keywords: ['lemon8', 'lemon 8', 'portrait', '3:4', 'lifestyle post'] },
-  { id: 'reddit-banner', group: 'Emerging Social', name: 'Reddit Subreddit banner', w: 1920, h: 384,
-    keywords: ['reddit', 'subreddit', 'banner', 'header', 'community banner', '5:1'] },
-  { id: 'reddit-icon', group: 'Emerging Social', name: 'Reddit Subreddit icon', w: 256, h: 256,
-    keywords: ['reddit', 'subreddit icon', 'community logo', 'snoo'] },
+  // ---- Bluesky ----
+  ["bsky-post", "Bluesky", "Landscape post image", 1600, 900, false, "bluesky|blue sky|bsky|skeet|post|feed|landscape|16:9"],
+  ["bsky-square", "Bluesky", "Square post image", 1080, 1080, false, "bluesky|blue sky|bsky|square|post|1:1"],
+  ["bsky-profile", "Bluesky", "Profile picture", 400, 400, false, "bluesky|blue sky|bsky|profile|avatar|pfp"],
+  ["bsky-banner", "Bluesky", "Profile banner", 1500, 500, false, "bluesky|blue sky|bsky|banner|cover|header|profile"],
 
-  // ==========================================
-  // ---- E-COMMERCE & RETAIL ----
-  // ==========================================
-  { id: 'shop-product', group: 'Commerce', name: 'Shopify / General product photo', w: 2048, h: 2048, hot: true,
-    keywords: ['product', 'shopify', 'store', 'ecommerce', 'e-commerce', 'catalog', 'listing', 'square', 'shop', '1:1', '2048x2048'] },
-  { id: 'amazon-main', group: 'Commerce', name: 'Amazon Main listing image', w: 2000, h: 2000, hot: true,
-    keywords: ['amazon', 'main image', 'product photo', 'white background', 'square', 'fba', 'zoomable'] },
-  { id: 'amazon-aplus', group: 'Commerce', name: 'Amazon A+ Content module', w: 970, h: 600,
-    keywords: ['amazon', 'a+ content', 'ebc', 'brand banner', 'product description module'] },
-  { id: 'etsy-banner-big', group: 'Commerce', name: 'Etsy Big shop banner', w: 3360, h: 840,
-    keywords: ['etsy', 'store banner', 'big banner', 'shop cover', 'header', '4:1'] },
-  { id: 'etsy-banner-mini', group: 'Commerce', name: 'Etsy Mini shop banner', w: 1200, h: 300,
-    keywords: ['etsy', 'mini banner', 'small banner', 'shop cover'] },
-  { id: 'etsy-icon', group: 'Commerce', name: 'Etsy Shop icon', w: 500, h: 500,
-    keywords: ['etsy', 'shop icon', 'logo', 'store photo', 'avatar'] },
-  { id: 'poshmark-listing', group: 'Commerce', name: 'Poshmark / Mercari photo', w: 1080, h: 1080,
-    keywords: ['poshmark', 'mercari', 'depop', 'reseller', 'listing', 'closet photo'] },
+  // ---- Reddit ----
+  ["reddit-post", "Reddit", "Post image", 1200, 628, false, "reddit|subreddit|post|link|preview|landscape|1.91:1"],
+  ["reddit-square", "Reddit", "Square post", 1080, 1080, false, "reddit|subreddit|square|post|1:1"],
+  ["reddit-community-icon", "Reddit", "Community icon", 256, 256, false, "reddit|subreddit|community icon|icon|avatar|logo"],
+  ["reddit-banner", "Reddit", "Community banner", 1920, 384, false, "reddit|subreddit|banner|cover|header|community"],
+  ["reddit-mobile-banner", "Reddit", "Mobile community banner", 1600, 480, false, "reddit|subreddit|mobile banner|cover|header|community"],
 
-  // ==========================================
-  // ---- APP STORE & SOFTWARE ASSETS ----
-  // ==========================================
-  { id: 'app-iphone-67', group: 'App Store', name: 'iOS Screenshot (6.7" iPhone)', w: 1290, h: 2796, hot: true,
-    keywords: ['app store', 'ios', 'iphone', 'screenshot', 'apple', 'mobile preview', '15 pro max', '16 pro max'] },
-  { id: 'app-iphone-65', group: 'App Store', name: 'iOS Screenshot (6.5" iPhone)', w: 1242, h: 2688,
-    keywords: ['app store', 'ios', 'iphone', 'screenshot', 'apple', 'xs max', '11 pro max'] },
-  { id: 'app-ipad-129', group: 'App Store', name: 'iOS Screenshot (12.9" iPad)', w: 2048, h: 2732,
-    keywords: ['app store', 'ios', 'ipad', 'screenshot', 'apple tablet', 'ipad pro'] },
-  { id: 'app-mac-icon', group: 'App Store', name: 'macOS / iOS App Icon', w: 1024, h: 1024, hot: true,
-    keywords: ['app icon', 'ios icon', 'mac icon', 'apple store icon', 'logo', '1024x1024', 'application'] },
-  { id: 'play-store-phone', group: 'App Store', name: 'Google Play Screenshot', w: 1080, h: 1920,
-    keywords: ['google play', 'android screenshot', 'phone preview', 'play store'] },
-  { id: 'play-store-feature', group: 'App Store', name: 'Google Play Feature Graphic', w: 1024, h: 500, hot: true,
-    keywords: ['google play', 'android', 'feature graphic', 'store cover', 'app store banner'] },
-  { id: 'play-store-icon', group: 'App Store', name: 'Google Play Store Icon', w: 512, h: 512,
-    keywords: ['google play', 'android icon', 'play store logo', 'app icon'] },
+  // ---- Twitch ----
+  ["twitch-video", "Twitch", "Stream / video canvas", 1920, 1080, false, "twitch|stream|streaming|video|canvas|overlay|16:9|1080p"],
+  ["twitch-thumb", "Twitch", "Video thumbnail", 1280, 720, false, "twitch|stream|thumbnail|video cover|preview|16:9"],
+  ["twitch-profile", "Twitch", "Profile picture", 800, 800, false, "twitch|stream|profile|avatar|pfp|channel icon"],
+  ["twitch-banner", "Twitch", "Profile banner", 1200, 480, false, "twitch|stream|profile banner|cover|header|channel banner"],
+  ["twitch-offline", "Twitch", "Offline screen", 1920, 1080, false, "twitch|stream|offline|offline screen|be right back|brb|ending screen|16:9"],
+  ["twitch-panel", "Twitch", "Channel panel", 320, 100, false, "twitch|stream|panel|about panel|donate panel|schedule panel|channel panel"],
 
-  // ==========================================
-  // ---- PRESENTATIONS & SLIDES ----
-  // ==========================================
-  { id: 'slide-16-9', group: 'Presentations', name: '16:9 Widescreen slide', w: 1920, h: 1080, hot: true,
-    keywords: ['slide', 'presentation', 'powerpoint', 'keynote', 'deck', 'pitch deck', 'google slides', '16:9', 'widescreen', '1080p'] },
-  { id: 'slide-4-3', group: 'Presentations', name: '4:3 Standard slide', w: 1600, h: 1200,
-    keywords: ['slide', 'presentation', 'powerpoint', 'keynote', 'deck', '4:3', 'standard slide', 'classic'] },
+  // ---- Discord ----
+  ["discord-profile", "Discord", "Profile picture", 512, 512, false, "discord|profile|avatar|pfp|user icon"],
+  ["discord-profile-banner", "Discord", "Profile banner", 600, 240, false, "discord|profile banner|cover|header|nitro banner"],
+  ["discord-server-icon", "Discord", "Server icon", 512, 512, false, "discord|server|server icon|guild icon|community icon|logo"],
+  ["discord-server-banner", "Discord", "Server banner", 960, 540, false, "discord|server banner|guild banner|cover|header|16:9"],
+  ["discord-event", "Discord", "Scheduled event cover", 800, 320, false, "discord|event|scheduled event|event cover|banner"],
+  ["discord-invite-bg", "Discord", "Invite splash", 1920, 1080, false, "discord|invite|invite background|invite splash|server splash|16:9"],
 
-  // ==========================================
-  // ---- WEB, SEO & METADATA ----
-  // ==========================================
-  { id: 'og-image', group: 'Web & Metadata', name: 'Open Graph / Social preview', w: 1200, h: 630, hot: true,
-    keywords: ['og', 'opengraph', 'open graph', 'link preview', 'share card', 'social preview',
-               'meta', 'seo', 'twitter card', 'unfurl', 'website', 'slack preview', '1.91:1'] },
-  { id: 'web-hero-hd', group: 'Web & Metadata', name: 'Website Hero (Full HD)', w: 1920, h: 1080, hot: true,
-    keywords: ['hero', 'banner', 'header', 'website', 'web', 'full hd', '1080p', 'landing page', '16:9'] },
-  { id: 'web-hero-4k', group: 'Web & Metadata', name: 'Website Hero (4K)', w: 3840, h: 2160,
-    keywords: ['hero', 'banner', 'header', 'website', '4k', 'uhd', 'landing page'] },
-  { id: 'web-blog', group: 'Web & Metadata', name: 'Blog post featured image', w: 1200, h: 600,
-    keywords: ['blog', 'article', 'post', 'header', 'featured', 'cover', '2:1'] },
-  { id: 'web-email-banner', group: 'Web & Metadata', name: 'Email newsletter header', w: 600, h: 200,
-    keywords: ['email', 'newsletter', 'mailchimp', 'klaviyo', 'header', 'banner', 'edm', '3:1'] },
-  { id: 'web-email-sig', group: 'Web & Metadata', name: 'Email signature banner', w: 600, h: 100,
-    keywords: ['email signature', 'footer', 'signature banner', 'mail signature', '6:1'] },
-  { id: 'web-favicon', group: 'Web & Metadata', name: 'Web App Favicon / Touch Icon', w: 512, h: 512,
-    keywords: ['icon', 'favicon', 'app icon', 'logo', 'square', 'pwa', 'touch icon', 'browser icon'] },
+  // ---- Messaging ----
+  ["whatsapp-status", "Messaging", "WhatsApp Status", 1080, 1920, false, "whatsapp|wa|status|story|vertical|fullscreen|9:16"],
+  ["whatsapp-profile", "Messaging", "WhatsApp profile picture", 500, 500, false, "whatsapp|wa|profile|avatar|pfp|display picture|dp"],
+  ["whatsapp-product", "Messaging", "WhatsApp catalog product", 1000, 1000, false, "whatsapp|wa|catalog|product|shop|commerce|listing|square"],
+  ["telegram-story", "Messaging", "Telegram Story", 1080, 1920, false, "telegram|tg|story|vertical|fullscreen|9:16"],
+  ["telegram-profile", "Messaging", "Telegram profile picture", 512, 512, false, "telegram|tg|profile|avatar|pfp|channel photo|group photo"],
+  ["slack-profile", "Messaging", "Slack profile picture", 512, 512, false, "slack|profile|avatar|pfp|headshot|workspace"],
 
-  // ==========================================
-  // ---- DISPLAY ADS (IAB STANDARDS) ----
-  // ==========================================
-  { id: 'ad-leaderboard', group: 'Display Ads', name: 'Leaderboard', w: 728, h: 90, hot: true,
-    keywords: ['ad', 'ads', 'google', 'display', 'adwords', 'leaderboard', 'banner', 'top banner', '728x90'] },
-  { id: 'ad-large-leaderboard', group: 'Display Ads', name: 'Large leaderboard', w: 970, h: 90,
-    keywords: ['ad', 'ads', 'google', 'display', 'large leaderboard', 'top banner', '970x90'] },
-  { id: 'ad-billboard', group: 'Display Ads', name: 'Billboard ad', w: 970, h: 250,
-    keywords: ['ad', 'ads', 'google', 'display', 'billboard', 'large banner', '970x250'] },
-  { id: 'ad-medium-rect', group: 'Display Ads', name: 'Medium rectangle (MREC)', w: 300, h: 250, hot: true,
-    keywords: ['ad', 'ads', 'google', 'display', 'mrec', 'medium rectangle', 'box ad', 'sidebar ad', '300x250'] },
-  { id: 'ad-large-rect', group: 'Display Ads', name: 'Large rectangle', w: 336, h: 280,
-    keywords: ['ad', 'ads', 'google', 'display', 'large rectangle', 'box ad', '336x280'] },
-  { id: 'ad-half-page', group: 'Display Ads', name: 'Half page / Filmstrip', w: 300, h: 600, hot: true,
-    keywords: ['ad', 'ads', 'google', 'display', 'half page', 'skyscraper', 'sidebar', 'tall ad', '300x600'] },
-  { id: 'ad-wide-skyscraper', group: 'Display Ads', name: 'Wide skyscraper', w: 160, h: 600,
-    keywords: ['ad', 'ads', 'google', 'display', 'skyscraper', 'tall', 'sidebar', '160x600'] },
-  { id: 'ad-mobile-banner', group: 'Display Ads', name: 'Mobile banner', w: 320, h: 50,
-    keywords: ['ad', 'ads', 'google', 'display', 'mobile banner', 'phone ad', '320x50'] },
-  { id: 'ad-mobile-large', group: 'Display Ads', name: 'Large mobile banner', w: 320, h: 100,
-    keywords: ['ad', 'ads', 'google', 'display', 'large mobile banner', '320x100'] },
-  { id: 'ad-square', group: 'Display Ads', name: 'Square ad', w: 250, h: 250,
-    keywords: ['ad', 'ads', 'google', 'display', 'square ad', '250x250'] },
+  // ---- Google Business Profile ----
+  ["gbp-post", "Google Business Profile", "Post image", 1200, 900, false, "google business|google business profile|gbp|gmb|post|update|offer|event|4:3"],
+  ["gbp-cover", "Google Business Profile", "Cover photo", 1024, 576, false, "google business|google business profile|gbp|gmb|cover|banner|header|16:9"],
+  ["gbp-logo", "Google Business Profile", "Logo", 720, 720, false, "google business|google business profile|gbp|gmb|logo|profile|avatar|square"],
+  ["gbp-product", "Google Business Profile", "Product photo", 1200, 900, false, "google business|google business profile|gbp|gmb|product|menu|service|listing|4:3"],
 
-  // ==========================================
-  // ---- WALLPAPERS & DISPLAYS ----
-  // ==========================================
-  { id: 'wall-4k', group: 'Wallpapers', name: '4K Desktop wallpaper (16:9)', w: 3840, h: 2160, hot: true,
-    keywords: ['wallpaper', 'desktop', '4k', 'uhd', 'background', 'screen', '16:9', 'monitor wallpaper', '2160p'] },
-  { id: 'wall-fhd', group: 'Wallpapers', name: 'Full HD Desktop wallpaper (16:9)', w: 1920, h: 1080,
-    keywords: ['wallpaper', 'desktop', '1080p', 'fhd', 'full hd', 'background', 'screen', '16:9'] },
-  { id: 'wall-ultrawide', group: 'Wallpapers', name: 'Ultrawide wallpaper (21:9)', w: 3440, h: 1440, hot: true,
-    keywords: ['wallpaper', 'desktop', 'ultrawide', 'curved', '21:9', 'background', 'monitor', '1440p'] },
-  { id: 'wall-super-ultrawide', group: 'Wallpapers', name: 'Super Ultrawide wallpaper (32:9)', w: 5120, h: 1440,
-    keywords: ['wallpaper', 'desktop', 'super ultrawide', '32:9', 'dual monitor', 'odyssey g9'] },
-  { id: 'wall-iphone', group: 'Wallpapers', name: 'iPhone mobile wallpaper', w: 1170, h: 2532,
-    keywords: ['wallpaper', 'mobile', 'phone wallpaper', 'iphone wallpaper', 'lock screen', 'vertical'] },
-  { id: 'wall-apple-watch', group: 'Wallpapers', name: 'Apple Watch face background', w: 396, h: 484,
-    keywords: ['apple watch', 'watch face', 'smartwatch', 'wallpaper', 'wearable'] },
+  // ---- Web ----
+  ["og-image", "Web", "Open Graph / link preview", 1200, 630, true, "og|opengraph|open graph|link preview|share card|social preview|meta|seo|twitter card|unfurl|website|slack preview"],
+  ["web-hero", "Web", "Hero banner — 16:9", 1920, 1080, true, "hero|banner|header|website|web|full hd|1080p|landing|16:9|above the fold"],
+  ["web-hero-wide", "Web", "Hero banner — wide", 1920, 800, false, "hero|banner|header|website|web|landing|wide hero|cinematic|desktop hero"],
+  ["web-hero-mobile", "Web", "Mobile hero", 1080, 1350, false, "hero|mobile hero|website|web|landing|phone|portrait|4:5"],
+  ["web-blog", "Web", "Blog header", 1200, 600, false, "blog|article|post|header|featured|cover|2:1|editorial"],
+  ["web-featured", "Web", "Featured image", 1600, 900, false, "website|web|featured image|article image|blog cover|thumbnail|16:9"],
+  ["web-card-landscape", "Web", "Content card — landscape", 800, 450, false, "website|web|card|content card|tile|thumbnail|landscape|16:9"],
+  ["web-card-square", "Web", "Content card — square", 800, 800, false, "website|web|card|content card|tile|thumbnail|square|1:1"],
+  ["web-favicon", "Web", "App icon / favicon master", 512, 512, false, "icon|favicon|app icon|logo|square|pwa|site icon"],
+  ["web-apple-touch", "Web", "Apple touch icon", 180, 180, false, "apple touch icon|touch icon|ios web icon|safari icon|web app icon"],
+  ["web-pwa-small", "Web", "PWA icon — 192", 192, 192, false, "pwa|progressive web app|manifest icon|android web icon|small app icon"],
+  ["web-browser-extension", "Web", "Browser extension icon", 128, 128, false, "browser extension|chrome extension|firefox add-on|extension icon|toolbar icon"],
 
-  // ==========================================
-  // ---- PRINT & PHYSICAL MEDIA ----
-  // ==========================================
-  { id: 'print-a0', group: 'Print Standard', name: 'A0 at 300 dpi', w: 9933, h: 14043,
-    keywords: ['print', 'a0', 'billboard', 'large poster', '300dpi', 'dpi'] },
-  { id: 'print-a1', group: 'Print Standard', name: 'A1 at 300 dpi', w: 7016, h: 9933,
-    keywords: ['print', 'a1', 'poster', 'exhibition', '300dpi'] },
-  { id: 'print-a2', group: 'Print Standard', name: 'A2 at 300 dpi', w: 4960, h: 7016,
-    keywords: ['print', 'a2', 'poster', 'print art', '300dpi'] },
-  { id: 'print-a3', group: 'Print Standard', name: 'A3 at 300 dpi', w: 3508, h: 4960,
-    keywords: ['print', 'a3', 'poster', 'small poster', '300dpi'] },
-  { id: 'print-a4', group: 'Print Standard', name: 'A4 at 300 dpi', w: 2480, h: 3508, hot: true,
-    keywords: ['print', 'a4', 'page', 'standard page', 'flyer', 'document', 'letterhead', '300dpi'] },
-  { id: 'print-a5', group: 'Print Standard', name: 'A5 at 300 dpi', w: 1748, h: 2480,
-    keywords: ['print', 'a5', 'flyer', 'leaflet', 'booklet', '300dpi'] },
-  { id: 'print-letter', group: 'Print Standard', name: 'US Letter at 300 dpi', w: 2550, h: 3300, hot: true,
-    keywords: ['print', 'letter', 'us letter', 'paper', 'flyer', '8.5x11', '8.5 x 11', 'document'] },
-  { id: 'print-legal', group: 'Print Standard', name: 'US Legal at 300 dpi', w: 2550, h: 4200,
-    keywords: ['print', 'legal', 'us legal', '8.5x14', 'document'] },
-  { id: 'print-tabloid', group: 'Print Standard', name: 'Tabloid (11 × 17) at 300 dpi', w: 3300, h: 5100,
-    keywords: ['print', 'tabloid', 'ledger', '11x17', '11 x 17', 'poster'] },
-  { id: 'print-poster-18x24', group: 'Print Photo & Art', name: '18 × 24 poster at 300 dpi', w: 5400, h: 7200, hot: true,
-    keywords: ['print', 'poster', '18x24', '18 x 24', '3:4', 'wall art', 'frame print'] },
-  { id: 'print-poster-24x36', group: 'Print Photo & Art', name: '24 × 36 poster at 300 dpi', w: 7200, h: 10800,
-    keywords: ['print', 'poster', '24x36', '24 x 36', 'large poster', 'movie poster'] },
-  { id: 'print-photo-4x6', group: 'Print Photo & Art', name: '4 × 6 photo at 300 dpi', w: 1800, h: 1200, hot: true,
-    keywords: ['print', 'photo', '4x6', '6x4', 'postcard', '3:2', 'photo print'] },
-  { id: 'print-photo-5x7', group: 'Print Photo & Art', name: '5 × 7 photo at 300 dpi', w: 2100, h: 1500,
-    keywords: ['print', 'photo', '5x7', '7x5', 'greeting card', 'invitation'] },
-  { id: 'print-photo-8x10', group: 'Print Photo & Art', name: '8 × 10 photo at 300 dpi', w: 3000, h: 2400,
-    keywords: ['print', 'photo', '8x10', '10x8', 'portrait print', 'framed photo', '4:5'] },
-  { id: 'print-card', group: 'Print Corporate', name: 'Standard Business Card at 300 dpi', w: 1050, h: 600, hot: true,
-    keywords: ['print', 'business card', 'card', 'name card', 'visiting card', '3.5x2'] },
-  { id: 'book-cover-kdp', group: 'Publishing', name: 'KDP Paperback Cover (6 × 9 standard)', w: 1800, h: 2700,
-    keywords: ['book cover', 'amazon kdp', 'kindle', 'paperback', 'novel', '6x9', 'book mockup'] }
+  // ---- Email ----
+  ["email-header", "Email", "Newsletter header", 600, 200, false, "email|newsletter|mailchimp|klaviyo|header|banner|edm|email marketing"],
+  ["email-hero", "Email", "Newsletter hero", 1200, 600, false, "email|newsletter|hero|banner|campaign|edm|2:1|retina"],
+  ["email-product", "Email", "Product block", 600, 600, false, "email|newsletter|product|commerce|shop|square|product block"],
+  ["email-feature", "Email", "Feature block", 600, 400, false, "email|newsletter|feature|content block|article|promotion"],
+  ["email-divider", "Email", "Section divider", 600, 100, false, "email|newsletter|divider|section banner|strip|separator"],
+  ["email-signature", "Email", "Email signature banner", 600, 150, false, "email|signature|email signature|footer banner|contact banner"],
+
+  // ---- Display ads ----
+  ["ad-billboard", "Display ads", "Billboard", 970, 250, true, "ad|ads|google|display|programmatic|billboard|banner|iab"],
+  ["ad-super-leaderboard", "Display ads", "Super leaderboard", 970, 90, false, "ad|ads|google|display|programmatic|super leaderboard|banner|iab"],
+  ["ad-leaderboard", "Display ads", "Leaderboard", 728, 90, true, "ad|ads|google|display|adwords|leaderboard|banner|top|iab"],
+  ["ad-full-banner", "Display ads", "Full banner", 468, 60, false, "ad|ads|display|full banner|banner|iab|legacy banner"],
+  ["ad-mobile", "Display ads", "Mobile banner", 320, 50, false, "ad|ads|google|display|mobile|banner|phone|iab"],
+  ["ad-large-mobile", "Display ads", "Large mobile banner", 320, 100, false, "ad|ads|google|display|large mobile banner|mobile|phone|iab"],
+  ["ad-medium", "Display ads", "Medium rectangle", 300, 250, true, "ad|ads|google|display|mrec|medium rectangle|box|sidebar|iab"],
+  ["ad-large", "Display ads", "Large rectangle", 336, 280, false, "ad|ads|google|display|large rectangle|box|iab"],
+  ["ad-square", "Display ads", "Square", 250, 250, false, "ad|ads|display|square ad|box|iab|1:1"],
+  ["ad-small-square", "Display ads", "Small square", 200, 200, false, "ad|ads|display|small square|box|iab|1:1"],
+  ["ad-halfpage", "Display ads", "Half page", 300, 600, true, "ad|ads|google|display|half page|sidebar|tall|iab"],
+  ["ad-skyscraper", "Display ads", "Wide skyscraper", 160, 600, false, "ad|ads|google|display|skyscraper|tall|sidebar|iab"],
+  ["ad-skyscraper-narrow", "Display ads", "Skyscraper", 120, 600, false, "ad|ads|display|skyscraper|narrow|tall|sidebar|iab"],
+  ["ad-portrait", "Display ads", "Portrait", 300, 1050, false, "ad|ads|display|portrait ad|tall ad|sidebar|iab"],
+  ["ad-responsive-landscape", "Display ads", "Responsive display — landscape", 1200, 628, true, "ad|ads|google ads|responsive display|landscape asset|marketing image|1.91:1"],
+  ["ad-responsive-square", "Display ads", "Responsive display — square", 1200, 1200, false, "ad|ads|google ads|responsive display|square asset|marketing image|1:1"],
+
+  // ---- Commerce ----
+  ["shop-product", "Commerce", "Product photo — square", 2048, 2048, true, "product|shopify|store|ecommerce|e-commerce|catalog|listing|square|shop|pdp"],
+  ["shop-product-portrait", "Commerce", "Product photo — portrait", 1600, 2000, false, "product|shopify|store|ecommerce|e-commerce|catalog|listing|portrait|4:5|fashion"],
+  ["shop-collection", "Commerce", "Collection banner", 1800, 1000, false, "shopify|store|ecommerce|collection|category|banner|hero|plp"],
+  ["shop-og", "Commerce", "Store link preview", 1200, 630, false, "shopify|store|ecommerce|open graph|og|link preview|social sharing"],
+  ["amazon-main", "Commerce", "Amazon main image", 2000, 2000, true, "amazon|marketplace|listing|product|main image|hero image|zoom|square"],
+  ["amazon-a-plus", "Commerce", "Amazon A+ module", 970, 600, false, "amazon|a+|a plus|enhanced brand content|ebc|module|product page"],
+  ["etsy-listing", "Commerce", "Etsy listing photo", 2700, 2025, false, "etsy|listing|product|marketplace|shop|4:3|listing photo"],
+  ["etsy-shop-banner", "Commerce", "Etsy big shop banner", 3360, 840, false, "etsy|shop banner|store banner|cover|header|4:1"],
+  ["ebay-listing", "Commerce", "eBay listing photo", 1600, 1600, false, "ebay|listing|product|marketplace|main image|square"],
+  ["ebay-billboard", "Commerce", "eBay store billboard", 1280, 290, false, "ebay|store|billboard|banner|cover|header"],
+  ["walmart-product", "Commerce", "Walmart product image", 2000, 2000, false, "walmart|marketplace|listing|product|main image|square"],
+  ["merchant-product", "Commerce", "Google Merchant product", 1200, 1200, false, "google merchant|merchant center|shopping ad|product feed|product image|square"],
+  ["marketplace-landscape", "Commerce", "Marketplace lifestyle image", 1600, 1200, false, "marketplace|product|lifestyle image|secondary image|gallery|4:3"],
+  ["product-detail", "Commerce", "Product detail close-up", 2000, 2500, false, "product|detail image|close up|feature image|pdp|portrait|4:5"],
+
+  // ---- App stores ----
+  ["appstore-icon", "App stores", "Apple App Store icon", 1024, 1024, true, "apple|app store|ios|iphone|ipad|app icon|store icon|1024"],
+  ["appstore-iphone", "App stores", "iPhone screenshot — portrait", 1290, 2796, false, "apple|app store|ios|iphone|screenshot|portrait|phone screenshot"],
+  ["appstore-ipad", "App stores", "iPad screenshot — portrait", 2048, 2732, false, "apple|app store|ios|ipad|screenshot|tablet|portrait"],
+  ["play-icon", "App stores", "Google Play icon", 512, 512, true, "google play|play store|android|app icon|store icon|launcher icon"],
+  ["play-feature", "App stores", "Google Play feature graphic", 1024, 500, false, "google play|play store|android|feature graphic|store banner|promo banner"],
+  ["play-phone", "App stores", "Google Play phone screenshot", 1080, 1920, false, "google play|play store|android|phone screenshot|screenshot|portrait|9:16"],
+  ["play-tv", "App stores", "Google TV banner", 1280, 720, false, "google play|android tv|google tv|tv banner|leanback|16:9"],
+
+  // ---- Presentations & video ----
+  ["slide-widescreen", "Presentations & video", "Presentation — widescreen", 1920, 1080, true, "presentation|slides|powerpoint|ppt|pptx|google slides|keynote|widescreen|16:9"],
+  ["slide-standard", "Presentations & video", "Presentation — standard", 1024, 768, false, "presentation|slides|powerpoint|ppt|pptx|google slides|keynote|standard|4:3"],
+  ["video-8k", "Presentations & video", "8K UHD video", 7680, 4320, false, "video|8k|uhd|4320p|16:9"],
+  ["video-4k", "Presentations & video", "4K UHD video", 3840, 2160, true, "video|4k|uhd|2160p|16:9"],
+  ["video-2k", "Presentations & video", "2K / QHD video", 2560, 1440, false, "video|2k|qhd|1440p|16:9"],
+  ["video-1080", "Presentations & video", "Full HD video", 1920, 1080, true, "video|full hd|fhd|1080p|hd|16:9"],
+  ["video-720", "Presentations & video", "HD video", 1280, 720, false, "video|hd|720p|16:9"],
+  ["video-square", "Presentations & video", "Square video", 1080, 1080, false, "video|square video|social video|1:1"],
+  ["video-vertical", "Presentations & video", "Vertical video", 1080, 1920, true, "video|vertical video|portrait video|mobile video|9:16|short form"],
+  ["video-cinema", "Presentations & video", "DCI 4K cinema", 4096, 2160, false, "video|cinema|dci|4k cinema|scope|theatrical"],
+
+  // ---- Print ----
+  ["print-a3", "Print", "A3 at 300 dpi", 3508, 4961, false, "print|a3|page|poster|flyer|300dpi|dpi"],
+  ["print-a4", "Print", "A4 at 300 dpi", 2480, 3508, true, "print|a4|page|poster|flyer|300dpi|dpi"],
+  ["print-a5", "Print", "A5 at 300 dpi", 1748, 2480, false, "print|a5|flyer|leaflet|page|300dpi"],
+  ["print-a6", "Print", "A6 at 300 dpi", 1240, 1748, false, "print|a6|postcard|flyer|leaflet|page|300dpi"],
+  ["print-letter", "Print", "US Letter at 300 dpi", 2550, 3300, true, "print|letter|us letter|page|flyer|8.5x11|300dpi"],
+  ["print-legal", "Print", "US Legal at 300 dpi", 2550, 4200, false, "print|legal|us legal|page|8.5x14|300dpi"],
+  ["print-tabloid", "Print", "Tabloid / Ledger at 300 dpi", 3300, 5100, false, "print|tabloid|ledger|11x17|poster|newspaper|300dpi"],
+  ["print-half-letter", "Print", "Half Letter at 300 dpi", 1650, 2550, false, "print|half letter|5.5x8.5|booklet|notebook|page|300dpi"],
+  ["print-photo", "Print", "6 × 4 photo at 300 dpi", 1800, 1200, false, "print|photo|6x4|4x6|postcard|3:2|300dpi"],
+  ["print-photo-5x7", "Print", "7 × 5 photo at 300 dpi", 2100, 1500, false, "print|photo|7x5|5x7|photo print|300dpi"],
+  ["print-photo-8x10", "Print", "10 × 8 photo at 300 dpi", 3000, 2400, false, "print|photo|10x8|8x10|portrait print|300dpi"],
+  ["print-card", "Print", "Business card at 300 dpi", 1050, 600, true, "print|business card|card|name card|3.5x2|300dpi"],
+  ["print-card-bleed", "Print", "Business card with bleed", 1125, 675, false, "print|business card|card|name card|bleed|trim|3.75x2.25|300dpi"],
+  ["print-postcard", "Print", "Postcard — 6 × 4", 1800, 1200, false, "print|postcard|mailer|direct mail|6x4|4x6|300dpi"],
+  ["print-rack-card", "Print", "Rack card — 4 × 9", 1200, 2700, false, "print|rack card|dl flyer|4x9|tourism brochure|hotel rack|300dpi"],
+  ["print-trifold", "Print", "Tri-fold brochure — Letter", 3300, 2550, false, "print|tri fold|trifold|brochure|letter landscape|folded leaflet|300dpi"],
+  ["print-poster-18x24", "Print", "Poster — 18 × 24", 5400, 7200, false, "print|poster|18x24|large poster|300dpi"],
+  ["print-poster-24x36", "Print", "Poster — 24 × 36", 7200, 10800, false, "print|poster|24x36|movie poster|large format|300dpi"],
+
+  // ---- Podcast & music ----
+  ["podcast-cover", "Podcast & music", "Podcast cover", 3000, 3000, true, "podcast|podcast cover|show art|cover art|apple podcasts|spotify podcast|square"],
+  ["album-cover", "Podcast & music", "Album cover", 3000, 3000, true, "album|album cover|cover art|music|record|single cover|square"],
+  ["spotify-canvas", "Podcast & music", "Spotify Canvas", 1080, 1920, false, "spotify|canvas|spotify canvas|vertical video|loop|9:16"],
+  ["spotify-playlist", "Podcast & music", "Spotify playlist cover", 640, 640, false, "spotify|playlist|playlist cover|cover art|square"],
+  ["soundcloud-profile", "Podcast & music", "SoundCloud profile picture", 1000, 1000, false, "soundcloud|profile|avatar|pfp|artist image|square"],
+  ["soundcloud-header", "Podcast & music", "SoundCloud header", 2480, 520, false, "soundcloud|header|banner|cover|artist banner"],
+
+  // ---- Events & calls ----
+  ["zoom-background", "Events & calls", "Zoom virtual background", 1920, 1080, true, "zoom|virtual background|video call|meeting background|webcam background|16:9"],
+  ["teams-background", "Events & calls", "Microsoft Teams background", 1920, 1080, false, "teams|microsoft teams|virtual background|meeting background|video call|16:9"],
+  ["webinar-cover", "Events & calls", "Webinar cover", 1920, 1080, false, "webinar|virtual event|event cover|registration page|presentation cover|16:9"],
+  ["eventbrite-cover", "Events & calls", "Event listing cover", 2160, 1080, false, "eventbrite|event|event cover|event listing|ticketing|2:1"],
+  ["digital-signage", "Events & calls", "Digital signage — landscape", 1920, 1080, false, "digital signage|screen|display|tv graphic|menu board|landscape|16:9"],
 ];
 
-// Ratio shorthand mapped to concrete pixel sizes for fast resolution
+export const PRESETS = RAW_PRESETS.map(
+  ([id, group, name, w, h, hot, keywords]) =>
+    enrichPreset({ id, group, name, w, h, hot, keywords }),
+);
+
+// Ratio shorthand people type directly. Each ratio maps to a concrete,
+// practical canvas instead of an abstract shape.
 export const RATIO_SIZES = [
   { ratio: 1 / 1, w: 1080, h: 1080 },
   { ratio: 4 / 5, w: 1080, h: 1350 },
@@ -378,13 +306,17 @@ export const RATIO_SIZES = [
   { ratio: 2 / 3, w: 1200, h: 1800 },
   { ratio: 4 / 3, w: 1600, h: 1200 },
   { ratio: 3 / 4, w: 1200, h: 1600 },
+  { ratio: 5 / 7, w: 1500, h: 2100 },
+  { ratio: 7 / 5, w: 2100, h: 1500 },
   { ratio: 21 / 9, w: 2520, h: 1080 },
   { ratio: 32 / 9, w: 3840, h: 1080 },
   { ratio: 2 / 1, w: 1600, h: 800 },
-  { ratio: 1.91 / 1, w: 1200, h: 628 },
-  { ratio: 1 / 2.1, w: 1000, h: 2100 },
-  { ratio: 3 / 1, w: 1500, h: 500 },
+  { ratio: 1 / 2, w: 1000, h: 2000 },
+  { ratio: 3 / 1, w: 1800, h: 600 },
   { ratio: 4 / 1, w: 1600, h: 400 },
+  { ratio: 5 / 2, w: 2000, h: 800 },
+  { ratio: 1.91 / 1, w: 1200, h: 628 },
+  { ratio: 1 / 1.91, w: 628, h: 1200 },
 ];
 
-export const HOT = PRESETS.filter((p) => p.hot);
+export const HOT = PRESETS.filter((preset) => preset.hot);
