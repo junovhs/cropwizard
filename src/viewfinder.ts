@@ -40,6 +40,7 @@ export interface ViewfinderController {
   setFit(on: boolean): void;
   isFit(): boolean;
   getFrameScale(): number;
+  canEnlarge(): boolean;
   getZoom(): number;
   getMaxZoom(): number;
   setZoom(zoom: number): void;
@@ -63,6 +64,9 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
   // frame is actually showing (below 1 means the stage forced a cap).
   let fitMode = false;
   let frameScale = 1;
+  // Whether enlarging has anywhere to go: false once the stage is the limit in
+  // both views, which is when offering the choice is offering nothing.
+  let enlargeable = false;
   // The framing to hold on to while the frame itself is changing shape or size.
   let morph: Framing | null = null;
   let vw = 1, vh = 1, dpr = 1;
@@ -149,6 +153,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     const roomH = Math.max(40, vh - FRAME_PAD * 2);
     const fits = Math.min(roomW / targetW, roomH / targetH);
     frameScale = fitMode ? fits : Math.min(1, fits);
+    enlargeable = fits > 1.005;
     // A sub-pixel frame would be unusable; a handful of pixels still reads.
     const width = Math.max(8, targetW * frameScale);
     const height = Math.max(8, targetH * frameScale);
@@ -533,6 +538,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     isFit: () => fitMode,
     // 1 while the frame is at true size; below 1 once the stage has capped it.
     getFrameScale: () => frameScale,
+    canEnlarge: () => enlargeable,
     // Zoom is stated against the smallest scale that still fills the frame, so
     // 100% is "the whole picture, nothing wasted" and every larger number is how
     // far in you have gone. That is the only reading the frame can support: the

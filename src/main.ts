@@ -126,7 +126,9 @@ function syncStageChrome(): void {
   // that is the decision being made.
   $('#readout').hidden = !hasImage || !cropping;
   $('#hints').hidden = !hasImage || !cropping;
-  $('#viewMode').hidden = !hasImage || !cropping;
+  // Visibility depends on the frame's room as well as the mode, so it is
+  // settled in one place — syncFitChrome, which is also what resize calls.
+  syncFitChrome();
   // Zoom is a fact about the framing, so it is on screen exactly as long as the
   // framing is the job in hand.
   $('#zoomTool').hidden = !hasImage || !cropping;
@@ -238,6 +240,10 @@ function showAdjust(item: CropItem): void {
 function syncFitChrome(): void {
   const fit = view.isFit();
   const percent = Math.round(view.getFrameScale() * 100);
+  // A crop bigger than the stage is capped either way, so the two views are the
+  // same picture and the control is a choice between one thing. It goes away
+  // rather than sitting there doing nothing.
+  $('#viewMode').hidden = !hasImage || mode !== 'crop' || !view.canEnlarge();
   for (const option of $$<HTMLButtonElement>('#viewMode [role="radio"]')) {
     option.setAttribute('aria-checked', String((option.dataset.fit === 'true') === fit));
   }
