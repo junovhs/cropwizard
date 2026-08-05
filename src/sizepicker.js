@@ -27,6 +27,15 @@ function swatch(w, h) {
   return el;
 }
 
+// The largest rectangle of a given shape that fits inside an image, in that
+// image's own pixels. Cropping to a shape should never invent pixels, so the
+// answer is always an inscribed rectangle, never a scaled-up one.
+function inscribe(iw, ih, ratio) {
+  return iw / ih > ratio
+    ? { w: Math.round(ih * ratio), h: ih }
+    : { w: iw, h: Math.round(iw / ratio) };
+}
+
 // A small square button that sits at the end of a row without becoming the row.
 function rowAction(label, glyph, onRun) {
   const el = document.createElement('button');
@@ -146,9 +155,27 @@ export function createSizePicker({
       dims.className = 'picker-dims';
       dims.textContent = `${r.w} × ${r.h}`;
 
-      const ratio = document.createElement('span');
+      // The ratio was already printed on every row; with an image loaded it is
+      // also an answer. "This shape, my pixels" is the thing people came for
+      // when they say 16:9 — the shape is the decision, the resolution is not
+      // theirs to give up — so the chip becomes the button that says it.
+      const answer = ratioAnswer(r);
+      const ratio = document.createElement(answer ? 'button' : 'span');
       ratio.className = 'picker-ratio';
       ratio.textContent = ratioLabel(r.w, r.h);
+      if (answer) {
+        ratio.type = 'button';
+        ratio.tabIndex = -1;      // the keyboard drives this list from the input
+        const say = `Crop this image to ${ratioLabel(r.w, r.h)} — ${answer.w} × ${answer.h}, its own pixels`;
+        ratio.title = say;
+        ratio.setAttribute('aria-label', say);
+        ratio.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();      // taking the shape is not choosing the row
+          close();
+          onPick(answer);
+        });
+      }
 
       el.append(text, ratio, dims);
 
@@ -168,6 +195,21 @@ export function createSizePicker({
       list.append(el);
     });
     scrollToCursor();
+  }
+
+  // One row's shape, taken at the loaded image's resolution. Null with no image
+  // on the stage: there is nothing to take the pixels from.
+  function ratioAnswer(r) {
+    if (!template) return null;
+    const { w, h } = inscribe(template.w, template.h, r.w / r.h);
+    return {
+      kind: 'ratio',
+      key: `ratio-${r.w}x${r.h}`,
+      name: `${ratioLabel(r.w, r.h)} of this image`,
+      detail: 'Its own pixels, cropped to shape',
+      w,
+      h,
+    };
   }
 
   function setCursor(next) {
@@ -190,9 +232,12 @@ export function createSizePicker({
     scrollToCursor();
   }
 
-  function choose(index = cursor) {
-    const r = rows[index];
-    if (!r) return;
+  // `shape` takes the highlighted row's ratio instead of its size — the
+  // keyboard's way of pressing the ratio chip, so the chip is not mouse-only.
+  function choose(index = cursor, shape = false) {
+    const row = rows[index];
+    if (!row) return;
+    const r = (shape && ratioAnswer(row)) || row;
     if (r.id) {
       recents = [r.id, ...recents.filter((x) => x !== r.id)].slice(0, MAX_RECENTS);
       saveRecents(recents);
@@ -206,6 +251,10 @@ export function createSizePicker({
     naming = null;
     saved = loadSaved();     // another tab may have added one
     template = getTemplate?.() || null;
+    // With nothing on the stage there are no pixels to take a shape at, so the
+    // shortcut is not advertised as if there were.
+    const shapeHint = root.querySelector('#shapeHint');
+    if (shapeHint) shapeHint.hidden = !template;
     // Pre-select the text so the next keystroke replaces the old query.
     input.select();
     input.focus();
@@ -232,7 +281,7 @@ export function createSizePicker({
     const keys = {
       ArrowDown: () => move(1),
       ArrowUp: () => move(-1),
-      Enter: () => choose(),
+      Enter: () => choose(cursor, e.shiftKey),
       Escape: () => close(),
       Tab: () => close(),
     };
