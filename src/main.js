@@ -61,7 +61,11 @@ function updateReadout(framing) {
   const chip = $('#qualityChip');
   const label = $('#quality');
   chip.className = 'chip';
-  if (ratio >= 1) { label.textContent = 'sharp'; chip.classList.add('good'); }
+  // A crop that is exactly the output size is the common case now that an image
+  // opens at its own resolution, and it arrives through a spring, so it lands a
+  // ten-thousandth short of 1 as often as not. Calling that "soft" would be a
+  // lie told by floating point.
+  if (ratio >= 0.999) { label.textContent = 'sharp'; chip.classList.add('good'); }
   else if (ratio >= 0.75) { label.textContent = `${Math.round(ratio * 100)}% — soft`; chip.classList.add('warn'); }
   else { label.textContent = `${Math.round(ratio * 100)}% — blurry`; chip.classList.add('bad'); }
 }
@@ -103,6 +107,9 @@ function setMode(next) {
 function setChromeVisible(on) {
   hasImage = on;
   syncStageChrome();
+  // What the size panel can honestly say about an unchosen size depends on
+  // whether there is a picture for it to have come from.
+  syncSizeConfidence();
 }
 
 // ---- adjustments -----------------------------------------------------------
@@ -184,8 +191,20 @@ async function intake(fileList) {
   });
   if (!items.length) { announce('None of those images could be opened'); return; }
 
+  // Nobody has said what size they need yet, and the image itself is the best
+  // answer to that question: its own pixels, nothing cut. Guessing a square
+  // meant every unasked-for arrival was cropped before it was even looked at.
+  // The size stays provisional, so choosing a real one is still one click away.
+  if (!sizeChosen) adoptImageSize(items[0]);
+
   const s = store.get();
   for (const item of items) preframe(item, s.target);
+  // The lead image is the one the target was taken from, so it is the whole
+  // rectangle exactly — said outright rather than rounded to by the autoframer.
+  if (!sizeChosen) {
+    items[0].frame = wholeFrame(items[0]);
+    items[0].framedFor = targetKey(s.target);
+  }
 
   // Single mode is a replacement, not an append: the new image takes the stage
   // and every setting stays exactly where it was (DEC-02).
@@ -217,6 +236,25 @@ function enableBatch() {
 }
 
 const targetKey = (t) => `${t.w}x${t.h}`;
+
+// The whole image, stated as a framing. Export reads item.frame, so naming the
+// entire rectangle is both the truth and the thing written to disk.
+const wholeFrame = (item) => ({
+  cx: item.image.naturalWidth / 2,
+  cy: item.image.naturalHeight / 2,
+  cropW: item.image.naturalWidth,
+  cropH: item.image.naturalHeight,
+});
+
+// Take the output size from the picture. Only ever called while the size is
+// still provisional — a size someone actually chose is never overruled.
+function adoptImageSize(item) {
+  applyTarget({
+    w: item.image.naturalWidth,
+    h: item.image.naturalHeight,
+    name: 'This image',
+  });
+}
 
 // Give an item an opening crop. Only ever applied to frames the user has not
 // taken responsibility for — an approved framing is never second-guessed.
@@ -354,7 +392,9 @@ function syncSizeConfidence() {
   $('#sizeNote').classList.toggle('is-unsettled', !sizeChosen);
   $('#sizeNote').textContent = sizeChosen
     ? 'Search by name, pixels or shape.'
-    : 'Just a suggestion — click above to set the size you need.';
+    : hasImage
+      ? 'Your image’s own size, nothing cropped. Click above to crop it to something else.'
+      : 'Just a suggestion — click above to set the size you need.';
 }
 
 createSizePicker({
@@ -383,9 +423,7 @@ createSizePicker({
     if (r.kind === 'whole') {
       const item = activeItem();
       if (item) {
-        const iw = item.image.naturalWidth;
-        const ih = item.image.naturalHeight;
-        item.frame = { cx: iw / 2, cy: ih / 2, cropW: iw, cropH: ih };
+        item.frame = wholeFrame(item);
         // Chosen by name, so it is a decision: a later size change reshapes it
         // around this rather than re-guessing from scratch.
         item.auto = false;

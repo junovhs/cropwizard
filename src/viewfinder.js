@@ -443,7 +443,16 @@ export function createViewfinder({ canvas, stage, onFrameChange }) {
     setImage(next, framing) {
       image = next;
       canvas.style.cursor = next ? 'grab' : 'default';
-      if (next) applyFraming(framing);
+      if (next) {
+        applyFraming(framing);
+        // An image can arrive while the frame is still travelling toward a new
+        // target — dropping a photo now sets the size from the photo, so this is
+        // the ordinary case, not a corner. Framing against a rectangle that is
+        // on its way somewhere else bakes in the magnification it happened to
+        // have at that instant, and the picture lands cropped. Hand the crop to
+        // the morph so it is re-derived until the frame actually arrives.
+        if (!frameW.settled || !frameH.settled) morph = readFraming();
+      }
       loop.kick();
     },
     // The live adjustment for whatever is on the stage. Only the pixels change:
