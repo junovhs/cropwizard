@@ -2,6 +2,7 @@
 
 import { makeZip } from './zip.js';
 import { encodePng } from './png.js';
+import { resample } from './resample.js';
 import { filterFor } from './adjust.js';
 import { canvasContext } from './infrastructure/dom.js';
 import type {
@@ -36,6 +37,52 @@ export const scaledTarget = (target: OutputTarget, scale: ExportScale = 1): Outp
   h: Math.max(1, Math.round(target.h * scale)),
 });
 
+/**
+ * The crop at its own resolution, as pixels we can do arithmetic on. Rounded
+ * outward to whole pixels because a fractional source rectangle is a resample in
+ * itself, and one done by the canvas in the wrong colour space at that.
+ */
+function cropPixels(item: CropItem, f: NonNullable<CropItem['frame']>): ImageData | null {
+  const iw = item.image.naturalWidth;
+  const ih = item.image.naturalHeight;
+  const x = Math.max(0, Math.floor(f.cx - f.cropW / 2));
+  const y = Math.max(0, Math.floor(f.cy - f.cropH / 2));
+  const w = Math.min(iw - x, Math.max(1, Math.round(f.cropW)));
+  const h = Math.min(ih - y, Math.max(1, Math.round(f.cropH)));
+  if (w < 1 || h < 1) return null;
+
+  const cut = document.createElement('canvas');
+  cut.width = w;
+  cut.height = h;
+  const ctx = canvasContext(cut);
+  ctx.drawImage(item.image, x, y, w, h, 0, 0, w, h);
+  return ctx.getImageData(0, 0, w, h);
+}
+
+/**
+ * Shrink in linear light when there is enough shrinking to be worth it. Returns
+ * null whenever the good path does not apply — too little reduction to matter,
+ * an upscale, or anything at all going wrong — and the caller falls back to the
+ * canvas, which is what shipped before this and is no worse than it was.
+ */
+function resampled(item: CropItem, target: OutputTarget): HTMLCanvasElement | null {
+  const f = item.frame;
+  if (!f) return null;
+  if (f.cropW < target.w * 1.05 || f.cropH < target.h * 1.05) return null;
+  try {
+    const pixels = cropPixels(item, f);
+    if (!pixels) return null;
+    const done = resample(pixels, target.w, target.h);
+    const canvas = document.createElement('canvas');
+    canvas.width = target.w;
+    canvas.height = target.h;
+    canvasContext(canvas).putImageData(done, 0, 0);
+    return canvas;
+  } catch {
+    return null;
+  }
+}
+
 /** Render one item at exactly the target pixel size. */
 export function renderItem(
   item: CropItem,
@@ -45,11 +92,12 @@ export function renderItem(
   const f = item.frame;
   if (!f) throw new Error(`Cannot export ${item.file.name}: no framing is available`);
 
-  let src: CanvasImageSource = item.image;
-  let sx = f.cx - f.cropW / 2;
-  let sy = f.cy - f.cropH / 2;
-  let sw = f.cropW;
-  let sh = f.cropH;
+  const fine = resampled(item, target);
+  let src: CanvasImageSource = fine ?? item.image;
+  let sx = fine ? 0 : f.cx - f.cropW / 2;
+  let sy = fine ? 0 : f.cy - f.cropH / 2;
+  let sw = fine ? target.w : f.cropW;
+  let sh = fine ? target.h : f.cropH;
 
   while (sw > target.w * 2 && sh > target.h * 2) {
     const step = document.createElement('canvas');
