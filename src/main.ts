@@ -12,6 +12,7 @@ import { acceptFrame, fitFrameToTarget, suggestFrame, targetKey, useWholeImage, 
 import {
   FREEFORM_LABEL, commitFreeform, enterFreeform, exitFreeform, releaseFreeform,
 } from './application/freeform.js';
+import { tickFromZoom, zoomFromTick, type ZoomRange } from './application/zoom.js';
 import { decodeImage } from './infrastructure/image-decoder.js';
 import { requiredElement, requiredElements } from './infrastructure/dom.js';
 import { loadPinned, pinId, removePinned } from './pinned.js';
@@ -111,11 +112,15 @@ function updateReadout(framing: Framing | null): void {
   syncZoom();
   const w = Math.round(framing.cropW);
   const h = Math.round(framing.cropH);
-  $('#cropSize').textContent = `${w} × ${h}`;
 
-  // In Freeform the output *is* the crop, so the panel that normally names a
-  // chosen size states the pixels being cut instead — live, while they change.
-  if (isFreeform()) {
+  // In Freeform the output *is* the crop, so both the panel that normally names
+  // a chosen size and the chip on the stage state the pixels being cut — live,
+  // while they change. Against a preset the crop's own size answers nothing the
+  // export cares about, so the chip stays away.
+  const freeform = isFreeform();
+  $('#cropChip').hidden = !freeform;
+  if (freeform) {
+    $('#cropSize').textContent = `${w} × ${h}`;
     $('#sizeName').textContent = FREEFORM_LABEL;
     $('#sizeDims').textContent = `${w} × ${h}`;
   }
@@ -129,7 +134,7 @@ function updateReadout(framing: Framing | null): void {
   const ratio = Math.min(framing.cropW / out.w, framing.cropH / out.h);
   const chip = $('#qualityChip');
   const label = $('#quality');
-  chip.className = 'chip';
+  chip.className = 'chip zoom-quality';
   // A crop that is exactly the output size is the common case now that an image
   // opens at its own resolution, and it arrives through a spring, so it lands a
   // ten-thousandth short of 1 as often as not. Calling that "soft" would be a
@@ -174,8 +179,9 @@ function syncStageChrome(): void {
   // settled in one place — syncFitChrome, which is also what resize calls.
   syncFitChrome();
   // Zoom is a fact about the framing, so it is on screen exactly as long as the
-  // framing is the job in hand.
+  // framing is the job in hand. The ratio lock is the same kind of fact.
   $('#zoomTool').hidden = !hasImage || !cropping;
+  $('#freeform').hidden = !hasImage || !cropping;
   $('#modeCrop').setAttribute('aria-selected', String(cropping));
   $('#modeAdjust').setAttribute('aria-selected', String(!cropping));
   syncFramingChrome();
@@ -320,10 +326,12 @@ const ZOOM_TICKS = 1000;
 const zoomSlider = $<HTMLInputElement>('#zoomSlider');
 const zoomField = $<HTMLInputElement>('#zoomValue');
 
-const tickToZoom = (tick: number): number =>
-  view.getMaxZoom() ** (tick / ZOOM_TICKS);
-const zoomToTick = (zoom: number): number =>
-  Math.round((Math.log(zoom) / Math.log(view.getMaxZoom())) * ZOOM_TICKS);
+// The range runs either side of 100% now — out to a picture sitting inside the
+// frame, in to eight times it — so the slider is anchored at both ends rather
+// than at 1 and a ceiling.
+const zoomRange = (): ZoomRange => ({ min: view.getMinZoom(), max: view.getMaxZoom() });
+const tickToZoom = (tick: number): number => zoomFromTick(tick, ZOOM_TICKS, zoomRange());
+const zoomToTick = (zoom: number): number => tickFromZoom(zoom, ZOOM_TICKS, zoomRange());
 
 // Whole numbers most of the time, a tenth when the tenth is the point.
 const showPercent = (zoom: number): string => {

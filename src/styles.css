@@ -475,10 +475,33 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .chip.bad strong { color: var(--danger); }
 .chip.warn { border-color: var(--warn); }
 
-/* Stage tools, top right: history then the true-size toggle. */
+/* Stage tools: the frame's own controls top right, and — in the opposite
+   corner, because it is a different kind of act — the way back through your
+   edits. Two corners rather than one crowded one. */
 .stage-tools {
   position: absolute; right: 18px; top: 18px;
+  z-index: 4;
   display: flex; align-items: center; gap: 8px;
+}
+.stage-tools-left { right: auto; left: 18px; }
+
+/* Freeform is a mode you are in, not a preference you keep, so it reads as a
+   pressed button — accent-filled, with the tick that only a chosen state
+   earns — rather than as a switch that stays flipped. */
+.freeform-tool { gap: 6px; }
+.freeform-tool[hidden] { display: none; }
+.freeform-check { font-size: 12px; line-height: 1; }
+.freeform-tool[aria-pressed="false"] .freeform-check { display: none; }
+.freeform-tool[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.freeform-tool[aria-pressed="true"]:hover {
+  border-color: var(--accent-2);
+  background: var(--accent-2);
+  color: #fff;
 }
 .history-group {
   display: flex;
@@ -542,6 +565,20 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   backdrop-filter: blur(8px);
 }
 .zoom-tool[hidden] { display: none; }
+
+/* The quality reading rides inside the zoom pill, as its first segment: it is
+   what the zoom costs, so it is read in the same glance and separated by a
+   rule rather than by a border of its own. */
+.zoom-quality {
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  padding: 2px 9px 2px 5px;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  white-space: nowrap;
+}
 
 .zoom-step {
   min-width: 24px; min-height: 24px;
@@ -1123,23 +1160,6 @@ body.is-framing .thumb.is-active { box-shadow: 0 0 0 3px var(--accent-soft), var
 .size-button.is-suspended:hover .swatch,
 .size-button.is-suspended:focus-visible .swatch { opacity: 1; }
 
-/* Freeform is a mode you are in, not a preference you keep, so it is a button
-   that reads as pressed — accent-filled, with the tick that only a chosen
-   state earns. */
-.freeform-button { width: 100%; margin-top: 10px; gap: 7px; }
-.freeform-check { display: none; font-size: 12px; line-height: 1; }
-.freeform-button[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #fff;
-}
-.freeform-button[aria-pressed="true"]:hover {
-  border-color: var(--accent-2);
-  background: var(--accent-2);
-  color: #fff;
-}
-.freeform-button[aria-pressed="true"] .freeform-check { display: inline; }
-
 /* Batch has no output contract to share while Freeform is on. It says so on
    hover and focus rather than going dark and silent, so it stays reachable by
    keyboard and the reason is where the pointer already is. */
@@ -1641,7 +1661,9 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
 
   /* Stage chrome shrinks so the picture keeps the screen. */
   .stage-tools { right: 12px; top: 12px; gap: 6px; }
+  .stage-tools-left { right: auto; left: 12px; }
   .stage-segmented button { padding: 0 8px; font-size: 11px; }
+  .zoom-quality { padding: 2px 7px 2px 4px; }
   /* Too narrow for a row: the chips take the line above the zoom control. */
   .stage-foot { left: 12px; right: 12px; bottom: 12px; gap: 8px; }
   .readout { gap: 5px; }

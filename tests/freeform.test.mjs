@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { tickFromZoom, zoomFromTick } from '../dist/src/application/zoom.js';
 import {
   FREEFORM_LABEL,
   commitFreeform,
@@ -183,6 +184,31 @@ test('a freeform crop cannot leave the image or collapse', () => {
   const crushedNw = resizeFree(start, 'nw', { x: 9999, y: 9999 }, limits);
   assert.equal(crushedNw.w, 44);
   assert.equal(crushedNw.h, 44);
+});
+
+test('the zoom slider spans 10% to 800% and lands on 100% in between', () => {
+  const range = { min: 0.1, max: 8 };
+  const TICKS = 1000;
+
+  assert.ok(Math.abs(zoomFromTick(0, TICKS, range) - 0.1) < 1e-12, 'the bottom end is 10%');
+  assert.ok(Math.abs(zoomFromTick(TICKS, TICKS, range) - 8) < 1e-12, 'the top end is 800%');
+
+  // 100% is a real landmark on the track, not an end of it.
+  const hundred = tickFromZoom(1, TICKS, range);
+  assert.ok(hundred > 0 && hundred < TICKS);
+  assert.ok(Math.abs(zoomFromTick(hundred, TICKS, range) - 1) < 0.005);
+
+  // Logarithmic: the same number of ticks is the same proportional step
+  // wherever you are, which is the point of the control.
+  const step = 100;
+  const low = zoomFromTick(step, TICKS, range) / zoomFromTick(0, TICKS, range);
+  const high = zoomFromTick(TICKS, TICKS, range) / zoomFromTick(TICKS - step, TICKS, range);
+  assert.ok(Math.abs(low - high) < 1e-9);
+
+  for (const zoom of [0.1, 0.25, 1, 2.5, 8]) {
+    const round = zoomFromTick(tickFromZoom(zoom, TICKS, range), TICKS, range);
+    assert.ok(Math.abs(round - zoom) / zoom < 0.005, `${zoom} survives the round trip`);
+  }
 });
 
 test('the freeform target is the crop, rounded to whole pixels', () => {

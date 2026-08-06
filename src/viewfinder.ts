@@ -19,12 +19,26 @@ import type { Adjustment, Framing } from './domain/types.js';
 
 const GHOST_IDLE = 0.12;      // what you keep seeing of the discarded image
 const GHOST_ACTIVE = 0.34;    // ...and how much it lifts while you work
-const FRAME_PAD = 56;         // breathing room between frame and stage edge
+const FRAME_PAD = 76;         // breathing room between frame and stage edge
 const MAX_ZOOM = 8;           // relative to the minimum covering scale
+// ...and how far the other way. Below 1 the picture no longer fills the frame,
+// which is a legitimate answer rather than a mistake: a landscape photo into a
+// square asset either loses its sides or sits inside the square with room
+// around it, and only one of those is the photographer's call to make.
+const MIN_ZOOM = 0.1;
 const SNAP_PX = 7;            // magnetic pull toward a centred framing
 const MIN_FRAME_PX = 44;       // smallest useful crop box on screen
 const CORNER_HIT = 18;         // forgiving pointer target around corner handles
 const EDGE_HIT = 12;           // forgiving pointer target around edge handles
+
+/**
+ * Clamp between two ends given in either order. Once the picture can be smaller
+ * than the frame, the legal range for the transform turns inside out — "keep the
+ * frame inside the image" becomes "keep the image inside the frame" — and it is
+ * the same pair of numbers meeting from the other side.
+ */
+const between = (value: number, a: number, b: number): number =>
+  clamp(value, Math.min(a, b), Math.max(a, b));
 
 interface Point { readonly x: number; readonly y: number; }
 interface FrameRect { readonly x: number; readonly y: number; readonly w: number; readonly h: number; }
@@ -61,6 +75,7 @@ export interface ViewfinderController {
   canEnlarge(): boolean;
   getZoom(): number;
   getMaxZoom(): number;
+  getMinZoom(): number;
   setZoom(zoom: number): void;
   nudge(dx: number, dy: number): void;
   zoomBy(factor: number): void;
@@ -163,8 +178,9 @@ export function createViewfinder(
     return { x: (vw - w) / 2, y: (vh - h) / 2, w, h };
   }
 
-  // Smallest scale at which the image still covers the frame. This is the floor
-  // for every zoom: the frame is never allowed to contain empty space.
+  // The scale at which the image exactly covers the frame. Zoom is stated
+  // against this, so 100% is "the whole picture, nothing wasted"; below it the
+  // picture sits inside the frame with room around it.
   function minScale(): number {
     if (!image) return 1;
     return Math.max(frameW.v / image.naturalWidth, frameH.v / image.naturalHeight);
@@ -175,9 +191,14 @@ export function createViewfinder(
     if (!current) return { x: [0, 0], y: [0, 0] };
     const f = frameRect();
     const s = scale.v;
+    // Ordered rather than assumed: zoomed out, these two swap places and the
+    // rule becomes "the picture stays within the frame" without any second
+    // branch to keep in step.
+    const x0 = f.x + f.w - current.naturalWidth * s;
+    const y0 = f.y + f.h - current.naturalHeight * s;
     return {
-      x: [f.x + f.w - current.naturalWidth * s, f.x],
-      y: [f.y + f.h - current.naturalHeight * s, f.y],
+      x: [Math.min(x0, f.x), Math.max(x0, f.x)],
+      y: [Math.min(y0, f.y), Math.max(y0, f.y)],
     };
   }
 
@@ -231,9 +252,11 @@ export function createViewfinder(
   function settle(): void {
     if (!image) return;
     const min = minScale();
-    if (scale.v < min - 0.0001) scale.set(min);
+    if (scale.v < min * MIN_ZOOM) scale.set(min * MIN_ZOOM);
     // A magnet on exact fit, kept narrow: the zoom is a number you can set to
-    // 101% on purpose now, and a wide magnet would quietly overrule you.
+    // 101% on purpose now, and a wide magnet would quietly overrule you. It is
+    // still worth having — "fills the frame exactly" is the one landmark on a
+    // range that now runs either side of it.
     else if (Math.abs(scale.v - min) / min < 0.004) scale.set(min);
     const l = legal(tx.v, ty.v);
     tx.set(l.x);
@@ -313,14 +336,18 @@ export function createViewfinder(
     if (!image) return;
     const f = frameRect();
     const iw = image.naturalWidth, ih = image.naturalHeight;
-    // Re-fit the stored crop to the current aspect, keeping its centre.
-    let cropW = framing ? framing.cropW : Math.min(iw, ih * aspect);
-    let cropH = cropW / aspect;
-    const fitting = Math.min(1, iw / cropW, ih / cropH);
-    cropW *= fitting;
-    cropH *= fitting;
-    const cx = clamp(framing ? framing.cx : iw / 2, cropW / 2, iw - cropW / 2);
-    const cy = clamp(framing ? framing.cy : ih / 2, cropH / 2, ih - cropH / 2);
+    // Re-fit the stored crop to the current aspect, keeping its centre. A crop
+    // wider than the picture is no longer a mistake to be shrunk away — it is
+    // what zooming out below 100% means — so the only ceiling is the one the
+    // zoom floor implies: `cover / MIN_ZOOM` and not a pixel further.
+    const cover = Math.min(iw, ih * aspect);
+    const cropW = clamp(framing ? framing.cropW : cover, 1e-6, cover / MIN_ZOOM);
+    const cropH = cropW / aspect;
+    // `between`, not `clamp`: past the point where the crop is larger than the
+    // picture these two ends cross over, and the rule reads "the picture stays
+    // inside the crop" from there on.
+    const cx = between(framing ? framing.cx : iw / 2, cropW / 2, iw - cropW / 2);
+    const cy = between(framing ? framing.cy : ih / 2, cropH / 2, ih - cropH / 2);
     const s = f.w / cropW;
     scale.jump(s);
     tx.jump(f.x - (cx - cropW / 2) * s);
@@ -523,8 +550,24 @@ export function createViewfinder(
     loop.kick();
   }
 
-  function legalFramePosition(x: number, y: number, w: number, h: number): Point {
+  /**
+   * How far the crop box itself may travel and grow. While the picture covers
+   * the frame that is the picture: you cannot crop what is not there, and
+   * stopping at its edge is the whole affordance. Once you have deliberately
+   * zoomed out past 100% the picture no longer covers anything, and holding the
+   * box inside it would collapse the frame to nothing — so the stage takes over
+   * as the limit, which is what the canonical frame is measured against anyway.
+   */
+  function frameLimit(): FrameRect {
     const im = imageRect();
+    const f = frameRect();
+    const covers = im.x <= f.x + 0.5 && im.y <= f.y + 0.5
+      && im.x + im.w >= f.x + f.w - 0.5 && im.y + im.h >= f.y + f.h - 0.5;
+    return covers ? im : { x: 0, y: 0, w: vw, h: vh };
+  }
+
+  function legalFramePosition(x: number, y: number, w: number, h: number): Point {
+    const im = frameLimit();
     const maxX = im.x + im.w - w;
     const maxY = im.y + im.h - h;
     let nextX = clamp(x, im.x, Math.max(im.x, maxX));
@@ -541,7 +584,7 @@ export function createViewfinder(
   }
 
   function resizeFrame(start: FrameRect, handle: Exclude<FrameHandle, 'move'>, p: Point): FrameRect {
-    const im = imageRect();
+    const im = frameLimit();
     const right = im.x + im.w;
     const bottom = im.y + im.h;
     const ratio = start.w / start.h || aspect;
@@ -727,7 +770,7 @@ export function createViewfinder(
     if (!image) return;
     const min = minScale();
     const from = scale.v;
-    const to = clamp(from * factor, min, min * MAX_ZOOM);
+    const to = clamp(from * factor, min * MIN_ZOOM, min * MAX_ZOOM);
     if (Math.abs(to - from) < 1e-6) return;
     // Keep the point under the cursor pinned to the cursor.
     scale.jump(to);
@@ -861,6 +904,7 @@ export function createViewfinder(
       return min > 0 ? scale.v / min : 1;
     },
     getMaxZoom: () => MAX_ZOOM,
+    getMinZoom: () => MIN_ZOOM,
     // Set from a control rather than a gesture: there is no cursor to keep a
     // point under, so the frame's own centre holds still.
     setZoom(zoom: number): void {
@@ -868,7 +912,7 @@ export function createViewfinder(
       normalizeFrameImmediately();
       const min = minScale();
       const from = scale.v;
-      const to = clamp(zoom, 1, MAX_ZOOM) * min;
+      const to = clamp(zoom, MIN_ZOOM, MAX_ZOOM) * min;
       if (from <= 0 || Math.abs(to - from) / from < 1e-6) return;
       beginInteraction();
       // Immediate: a slider is already a continuous gesture, and springing to

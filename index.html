@@ -131,9 +131,10 @@
       </div>
 
 
-      <!-- Stage tools, top right: step back and forth through your edits, and
-           choose whether the frame is shown at its real size. -->
-      <div class="stage-tools">
+      <!-- Stepping back and forth through your edits is a thing you do to the
+           work, not a thing you decide about the crop, so it keeps its own
+           corner away from the controls that shape the output. -->
+      <div class="stage-tools stage-tools-left">
         <div class="history-group">
           <button id="undo" class="stage-tool" type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
             <span class="icon" data-icon="undo"></span>
@@ -142,6 +143,21 @@
             <span class="icon" data-icon="redo"></span>
           </button>
         </div>
+      </div>
+
+      <!-- Stage tools, top right: the two things that change what the frame is
+           — whether it has a locked shape at all, and whether you are seeing it
+           at its real size. -->
+      <div class="stage-tools">
+        <!-- Freeform belongs to the frame, so it lives with the frame. It
+             overrides the size in the panel rather than replacing it, which is
+             why it is a pressed button and not another size to pick. -->
+        <button id="freeform" class="stage-tool freeform-tool" type="button" aria-pressed="false"
+          title="Crop without a locked aspect ratio"
+          aria-description="Crop without a locked aspect ratio" hidden>
+          <span class="freeform-check" aria-hidden="true">✓</span>
+          <span>Freeform</span>
+        </button>
         <!-- Two ways to look at the same crop, both on screen at once. A single
              button had to be labelled with one of them, and whichever it named
              read as the state you were in about as often as the one you would
@@ -171,8 +187,11 @@
            them. -->
       <div class="stage-foot">
         <div id="readout" class="readout" hidden>
-          <span class="chip">Cutting <strong id="cropSize">—</strong></span>
-          <span id="qualityChip" class="chip good">Quality <strong id="quality">—</strong></span>
+          <!-- The crop's own pixel size is only news when it is also the file's
+               pixel size. Against a chosen output size it is a number that
+               changes while the answer does not, which is a question raised
+               rather than answered — so it appears in Freeform and nowhere else. -->
+          <span id="cropChip" class="chip" hidden>Output <strong id="cropSize">—</strong></span>
           <span id="scaleChip" class="chip" hidden></span>
         </div>
 
@@ -181,6 +200,10 @@
              step is the same proportion of what you are already at, and the
              field is there for the times you know the number you want. -->
         <div id="zoomTool" class="zoom-tool" hidden>
+          <!-- Sharpness is the consequence of the zoom, so it is stated on the
+               control that causes it: push in, watch it fall. Apart, they were
+               two numbers on the same screen with no visible connection. -->
+          <span id="qualityChip" class="chip zoom-quality good">Quality <strong id="quality">—</strong></span>
           <button id="zoomOut" class="zoom-step" type="button" aria-label="Zoom out" title="Zoom out">−</button>
           <input id="zoomSlider" class="zoom-slider" type="range" min="0" max="1000" step="1" value="0"
             aria-label="Zoom">
@@ -230,16 +253,6 @@
         <span class="icon size-chevron" data-icon="chevron-down" aria-hidden="true"></span>
       </button>
       <p id="sizeNote" class="note">Search by name, pixels or shape.</p>
-
-      <!-- The other kind of crop: the one where the destination has not been
-           decided yet. It overrides the size above rather than replacing it, so
-           it is a pressed state on a button and not a size of its own. -->
-      <button id="freeform" class="secondary freeform-button" type="button" aria-pressed="false"
-        title="Crop without a locked aspect ratio"
-        aria-description="Crop without a locked aspect ratio">
-        <span class="freeform-check" aria-hidden="true">✓</span>
-        <span>Freeform</span>
-      </button>
 
       <div class="scale-row">
         <span id="scaleLabel" class="field-label">Quick export</span>
