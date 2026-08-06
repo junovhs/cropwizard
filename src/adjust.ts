@@ -27,6 +27,49 @@ export const neutral = (): Adjustment => ({ ...NEUTRAL });
 export const isNeutral = (adjustment: Adjustment | null | undefined): boolean =>
   !adjustment || CHANNELS.every((channel) => !adjustment[channel.key]);
 
+/**
+ * The same three adjustments, done by hand.
+ *
+ * `ctx.filter` is the fast path and not every browser has it — and "you cannot
+ * adjust images on this device" is not an answer anyone wants. So the arithmetic
+ * the filter would have done is written out here: brightness, then contrast,
+ * then saturation, in that order, on sRGB values, which is what the CSS filter
+ * functions do. Brightness and contrast are the same curve for all three
+ * channels, so they collapse into one 256-entry table built once per call;
+ * saturation needs all three channels at once and is done per pixel.
+ *
+ * Mutates `pixels` in place.
+ */
+export function applyAdjustment(pixels: ImageData, adjustment: Adjustment | null | undefined): void {
+  if (isNeutral(adjustment)) return;
+  const brightness = 1 + (adjustment?.exposure ?? 0) / 100;
+  const contrast = 1 + (adjustment?.contrast ?? 0) / 100;
+  const saturation = 1 + (adjustment?.saturation ?? 0) / 100;
+
+  const curve = new Uint8ClampedArray(256);
+  for (let i = 0; i < 256; i += 1) {
+    const lifted = (i / 255) * brightness;
+    curve[i] = Math.round(((lifted - 0.5) * contrast + 0.5) * 255);
+  }
+
+  const data = pixels.data;
+  const flat = saturation === 1;
+  for (let at = 0; at < data.length; at += 4) {
+    const r = curve[data[at] as number] as number;
+    const g = curve[data[at + 1] as number] as number;
+    const b = curve[data[at + 2] as number] as number;
+    if (flat) {
+      data[at] = r; data[at + 1] = g; data[at + 2] = b;
+      continue;
+    }
+    // Rec. 709 luminance, the same grey the filter spec pivots saturation about.
+    const grey = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    data[at] = grey + saturation * (r - grey);
+    data[at + 1] = grey + saturation * (g - grey);
+    data[at + 2] = grey + saturation * (b - grey);
+  }
+}
+
 export function filterFor(adjustment: Adjustment | null | undefined): string {
   if (isNeutral(adjustment)) return 'none';
   return CHANNELS
@@ -68,7 +111,6 @@ export const CAN_FILTER = (() => {
 interface AdjustPanelOptions {
   readonly rows: HTMLElement;
   readonly reset: HTMLButtonElement;
-  readonly note: HTMLElement;
   readonly onChange: (adjustment: Adjustment) => void;
   readonly onAnnounce?: (message: string) => void;
 }
@@ -86,7 +128,6 @@ export interface AdjustPanel {
 export function createAdjustPanel({
   rows,
   reset,
-  note,
   onChange,
   onAnnounce,
 }: AdjustPanelOptions): AdjustPanel {
@@ -213,13 +254,6 @@ export function createAdjustPanel({
     reset.disabled = isNeutral(value);
   }
 
-  if (!CAN_FILTER) {
-    note.hidden = false;
-    for (const control of controls.values()) {
-      control.input.disabled = true;
-      control.zero.disabled = true;
-    }
-  }
 
   return {
     load(adjustment): Adjustment {

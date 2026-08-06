@@ -3,7 +3,7 @@
 import { makeZip } from './zip.js';
 import { encodePng } from './png.js';
 import { resample } from './resample.js';
-import { filterFor } from './adjust.js';
+import { CAN_FILTER, applyAdjustment, filterFor, isNeutral } from './adjust.js';
 import { canvasContext } from './infrastructure/dom.js';
 import type {
   CropItem,
@@ -127,6 +127,14 @@ export function renderItem(
   ctx.filter = filterFor(item.adjust);
   ctx.drawImage(src, sx, sy, sw, sh, 0, 0, target.w, target.h);
   ctx.filter = 'none';
+  // Where the canvas has no filter, the same arithmetic is done on the pixels
+  // that were just written — at full output resolution, once, so the file is
+  // exactly what was asked for rather than the capped copy the preview uses.
+  if (!CAN_FILTER && !isNeutral(item.adjust)) {
+    const pixels = ctx.getImageData(0, 0, target.w, target.h);
+    applyAdjustment(pixels, item.adjust);
+    ctx.putImageData(pixels, 0, 0);
+  }
   return out;
 }
 

@@ -12,7 +12,7 @@
 // available as alternate ways to change the same persisted source rectangle.
 
 import { Spring, Pulse, createLoop, clamp } from './juice.js';
-import { filterFor } from './adjust.js';
+import { CAN_FILTER, applyAdjustment, filterFor, isNeutral } from './adjust.js';
 import { resizeFree } from './application/freeform.js';
 import { frameFit, type FrameView } from './application/frame-view.js';
 import { handleAt, type FrameHandle } from './application/handles.js';
@@ -39,6 +39,12 @@ const MAX_ZOOM = 8;           // relative to the minimum covering scale
 // it is a question about the frame's size on screen — which is what `frameView`
 // answers — not about how much picture is behind it.
 const MIN_ZOOM = 1;
+// Baking an adjustment into a copy of the picture, where the canvas cannot
+// filter: how long the sliders must hold still first, and how large the copy is
+// allowed to be. Both are about a phone staying answerable under a dragging
+// finger — the export does its own pass at full size.
+const BAKE_DELAY = 90;
+const BAKE_MAX_PX = 2600;
 const SNAP_PX = 7;            // magnetic pull toward a centred framing
 const MIN_FRAME_PX = 44;       // smallest useful crop box on screen
 
@@ -99,6 +105,12 @@ export function createViewfinder(
 
   let image: HTMLImageElement | null = null;
   let filter = 'none';
+  // The picture with the adjustment already in it, for browsers whose canvas
+  // cannot apply one. Null whenever the source image is what should be drawn —
+  // either because the canvas can filter, or because there is nothing to apply.
+  let baked: HTMLCanvasElement | null = null;
+  let pending: Adjustment | null = null;
+  let bakeTimer: ReturnType<typeof setTimeout> | null = null;
   let aspect = 1;
   // Freeform only changes what a resize is allowed to do. The frame is still
   // the thing being manipulated, and release still recentres.
@@ -372,6 +384,42 @@ export function createViewfinder(
     publish();
   }
 
+  /**
+   * Bake the adjustment into a copy of the picture, for canvases that cannot
+   * filter. Capped on the long side: this copy is only ever looked at, on a
+   * stage smaller than the cap, and a phone doing per-pixel arithmetic over
+   * twelve megapixels every time a slider moves is a phone that stops
+   * answering. The export path does its own pass at full resolution, so the
+   * file is never the approximation — only the preview is.
+   */
+  function bake(): void {
+    bakeTimer = null;
+    const adjust = pending;
+    pending = null;
+    if (!image || !adjust) return;
+    if (isNeutral(adjust)) { baked = null; loop.kick(); return; }
+
+    const iw = image.naturalWidth, ih = image.naturalHeight;
+    const shrink = Math.min(1, BAKE_MAX_PX / Math.max(iw, ih));
+    const w = Math.max(1, Math.round(iw * shrink));
+    const h = Math.max(1, Math.round(ih * shrink));
+    try {
+      const copy = document.createElement('canvas');
+      copy.width = w;
+      copy.height = h;
+      const cx = canvasContext(copy, { willReadFrequently: true });
+      cx.drawImage(image, 0, 0, w, h);
+      const pixels = cx.getImageData(0, 0, w, h);
+      applyAdjustment(pixels, adjust);
+      cx.putImageData(pixels, 0, 0);
+      baked = copy;
+    } catch {
+      // A picture the canvas will not hand back is one we cannot adjust here.
+      baked = null;
+    }
+    loop.kick();
+  }
+
   // ---- painting ------------------------------------------------------------
 
   function draw(): void {
@@ -386,6 +434,10 @@ export function createViewfinder(
     const w = image.naturalWidth * scale.v;
     const h = image.naturalHeight * scale.v;
     const f = frameRect();
+    // Whichever carries the adjustment: the filter below, or a copy that has it
+    // painted in already. Both are drawn to the same rectangle, so the rest of
+    // this knows nothing about which browser it is on.
+    const picture: CanvasImageSource = baked ?? image;
 
     // The adjustment rides on both passes, so the ghost you are cutting away is
     // the same picture as the one you are keeping. The chrome below is drawn
@@ -394,7 +446,7 @@ export function createViewfinder(
 
     // 1. the whole image, faint — this is the part you are cutting away.
     ctx.globalAlpha = ghost.v;
-    ctx.drawImage(image, tx.v, ty.v, w, h);
+    ctx.drawImage(picture, tx.v, ty.v, w, h);
     ctx.globalAlpha = 1;
 
     // 2. the same image again at full strength, clipped to the frame.
@@ -402,7 +454,7 @@ export function createViewfinder(
     ctx.beginPath();
     ctx.rect(f.x, f.y, f.w, f.h);
     ctx.clip();
-    ctx.drawImage(image, tx.v, ty.v, w, h);
+    ctx.drawImage(picture, tx.v, ty.v, w, h);
     ctx.restore();
 
     ctx.filter = 'none';
@@ -846,6 +898,11 @@ export function createViewfinder(
   return {
     setImage(next: HTMLImageElement | null, framing?: Framing | null): void {
       image = next;
+      // A baked copy belongs to the picture it was made from, and this is a
+      // different picture. Rebuilt from the new one's own adjustment when the
+      // caller sets it, which it does on every activation.
+      baked = null;
+      if (bakeTimer !== null) { clearTimeout(bakeTimer); bakeTimer = null; }
       hoverHandle = null;
       canvas.style.cursor = 'default';
       if (next) {
@@ -868,6 +925,15 @@ export function createViewfinder(
       const next = filterFor(adjust);
       if (next === filter) return;
       filter = next;
+      // Where the canvas cannot filter, the adjustment is baked into a copy of
+      // the picture and that copy is what gets drawn. Rebuilt on a short delay,
+      // because a slider being dragged asks for this sixty times a second and
+      // the arithmetic is per-pixel.
+      if (!CAN_FILTER) {
+        pending = adjust;
+        if (bakeTimer !== null) clearTimeout(bakeTimer);
+        bakeTimer = setTimeout(bake, BAKE_DELAY);
+      }
       loop.kick();
     },
     setTarget(w: number, h: number): void {

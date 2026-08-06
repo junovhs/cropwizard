@@ -34,6 +34,9 @@ let exportPanel: ExportPanelController | null = null;
 const DEFAULT_TARGET: OutputTarget = { ...store.get().target };
 
 const isFreeform = (): boolean => store.get().cropMode === 'freeform';
+// The one breakpoint the script needs to know about: below it the panel is a
+// screen of its own and the stage has no room for anything it does not need.
+const narrow = (): boolean => matchMedia('(max-width: 900px)').matches;
 
 function announce(message: string): void {
   const el = $('#status');
@@ -170,11 +173,12 @@ function syncStageChrome(): void {
   // quiet instead of disappearing: an empty rail reads as a broken rail.
   $<HTMLButtonElement>('#modeCrop').disabled = !hasImage;
   $<HTMLButtonElement>('#modeAdjust').disabled = !hasImage;
-  // An empty stage already carries a large, obvious way to choose images. A
-  // second one in the corner is not a second chance, it is a second guess about
-  // which is the real one — so it waits until there is something to add to.
-  $('#add').hidden = !hasImage;
   $('#adjust').hidden = !hasImage || cropping;
+  // Adjusting is one image's job. On a phone the queue underneath it left the
+  // sliders sitting on the filmstrip with the picture squeezed between them —
+  // two jobs' worth of chrome for the one you are not doing. The queue is still
+  // there; it is just not in the way while you are working on the pixels.
+  $('#strip').classList.toggle('is-stowed', !cropping);
   // The crop readouts describe a framing decision, so they are only true while
   // that is the decision being made.
   $('#readout').hidden = !hasImage || !cropping;
@@ -272,7 +276,6 @@ function setChromeVisible(on: boolean): void {
 const adjustPanel = createAdjustPanel({
   rows: $('#adjustRows'),
   reset: $('#adjustReset'),
-  note: $('#adjustUnsupported'),
   onAnnounce: announce,
   onChange(adjust) {
     const item = activeItem();
@@ -494,18 +497,24 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
     return;
   }
 
+  // A stack chosen by going to Batch is the answer to "which images", so it
+  // replaces what was there. Anything arriving later joins the queue.
+  if (awaitingBatchSize) {
+    awaitingBatchSize = false;
+    store.set({ items, activeIndex: -1 });
+    activate(0);
+    syncUI();
+    announce(`${items.length} image${items.length === 1 ? '' : 's'} ready to frame`);
+    // The one question left is the size they all have to come out at, asked now
+    // by the control that answers it rather than left as a sentence to find.
+    sizePicker.open();
+    return;
+  }
+
   const firstNew = s.items.length;
   store.set({ items: [...s.items, ...items] });
   activate(s.activeIndex < 0 ? firstNew : s.activeIndex);
   announce(`${items.length} image${items.length === 1 ? '' : 's'} added`);
-
-  // Batch was entered on purpose and the pictures have just arrived, so the one
-  // question left is the size they all have to come out at — asked now, by
-  // opening the picker, rather than left as a sentence to be found later.
-  if (awaitingBatchSize) {
-    awaitingBatchSize = false;
-    sizePicker.open();
-  }
 }
 
 // Set while a deliberate entry into Batch is waiting for its images: the flow is
@@ -524,20 +533,20 @@ function setBatch(on: boolean): void {
     store.set({ batch: true });
     syncBatchChrome();
     syncUI();
-    // Turning Batch on with nothing loaded is a statement about images you have
-    // not chosen yet, so it asks for them instead of explaining itself to an
-    // empty stage. The card that used to stand here said what the mode does;
-    // opening the picker shows it, and the size question follows the pictures.
-    if (!state.items.length) {
-      awaitingBatchSize = true;
-      announce('Batch on. Choose the images to frame');
-      openPicker();
-      return;
-    }
-    announce('Batch on. Drop as many images as you like');
+    // Turning Batch on is a statement about images you have not chosen yet, so
+    // it asks for them. The card that used to stand here explained what the mode
+    // does; opening the picker shows it, and the size question follows the
+    // pictures in. Whatever was on the stage is what the new stack replaces —
+    // going to Batch means "these images", not "this one and some others".
+    awaitingBatchSize = true;
+    announce('Batch on. Choose the images to frame');
+    openPicker();
     return;
   }
 
+  // Leaving Batch cancels the question it was waiting on, so a later drop is
+  // not read as the answer to a stack nobody is choosing any more.
+  awaitingBatchSize = false;
   const kept = activeItem(state);
   store.set({
     batch: false,
@@ -559,8 +568,12 @@ function syncBatchChrome(): void {
   // actually true: with batch on, the next drop behaves differently and the
   // card says how. One card is swapped for the other in place — a second card
   // stacked underneath would be two answers to the same question.
-  $('#emptyDefault').hidden = on;
-  $('#emptyBatch').hidden = !on;
+  // ...except on a phone, where turning Batch on goes straight to the photo
+  // picker. Swapping the card behind a picker that is already opening is a
+  // change nobody sees the point of and everybody sees flicker past.
+  const swap = on && !narrow();
+  $('#emptyDefault').hidden = swap;
+  $('#emptyBatch').hidden = !swap;
   $('#batchState').textContent = on ? 'On' : 'Off';
   $('#batchNote').textContent = on
     ? 'Frame each image, then keep it. Turn off to go back to one.'
@@ -655,7 +668,10 @@ function approve(): void {
 // The queue is finished, so the thing that was dim all the way through is now
 // the only thing left to do. Say so where the eye already is.
 function flashExport(): void {
-  const button = $('#export');
+  // On a phone the export button is inside a screen you have not opened yet, so
+  // the thing that opens it is what has to catch the eye. Whichever is on
+  // screen, the finished queue points at the one thing left to do.
+  const button = narrow() ? $('#sheetOpen') : $('#export');
   button.classList.remove('just-ready');
   void button.offsetWidth;
   button.classList.add('just-ready');
@@ -958,7 +974,6 @@ $('#redo').addEventListener('click', () => {
 // ---- events ----------------------------------------------------------------
 
 const openPicker = () => { fileInput.value = ''; fileInput.click(); };
-$('#add').onclick = openPicker;
 $('#emptyAdd').onclick = openPicker;
 $('#batchAdd').onclick = openPicker;
 fileInput.onchange = () => { if (fileInput.files) void intake(fileInput.files); };

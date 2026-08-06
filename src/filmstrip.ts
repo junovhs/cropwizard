@@ -1,6 +1,6 @@
 // The queue rail: a live contact sheet of the output queue.
 
-import { filterFor } from './adjust.js';
+import { CAN_FILTER, applyAdjustment, filterFor, isNeutral } from './adjust.js';
 import { canvasContext } from './infrastructure/dom.js';
 import type { AppState, CropItem, OutputTarget } from './domain/types.js';
 
@@ -93,6 +93,14 @@ export function createFilmstrip(options: FilmstripOptions): FilmstripController 
       h,
     );
     ctx.filter = 'none';
+    // A contact sheet has to be a preview of the file, so it carries the
+    // adjustment by whichever route this browser has. A thumbnail is a few
+    // thousand pixels, so the slow route costs nothing here.
+    if (!CAN_FILTER && !isNeutral(item.adjust)) {
+      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      applyAdjustment(pixels, item.adjust);
+      ctx.putImageData(pixels, 0, 0);
+    }
   }
 
   function build(item: CropItem, index: number): FilmstripCell {

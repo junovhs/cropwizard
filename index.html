@@ -60,8 +60,8 @@
     </div>
 
     <!-- Mobile only: the right panel has nowhere to live, so it becomes a sheet. -->
-    <label class="sheet-open" for="panelToggle">
-      <span class="icon" data-icon="settings"></span>Options<span class="sheet-open-more"> &amp; export</span>
+    <label id="sheetOpen" class="sheet-open" for="panelToggle">
+      <span class="icon" data-icon="download"></span>Export
     </label>
   </aside>
 
@@ -88,9 +88,6 @@
         <span class="icon" data-icon="crop"></span>
         <span id="sizeChipDims">1080 × 1080</span>
       </button>
-      <!-- An up-arrow-out-of-a-tray is the universal mark for *export*, which is
-           the one thing this button does not do. Pictures come in here. -->
-      <button id="add" class="secondary" type="button" aria-label="Add images"><span class="icon" data-icon="image"></span><span class="add-word">Add images</span></button>
     </div>
   </header>
 
@@ -140,8 +137,6 @@
           </div>
           <div id="adjustRows" class="adjust-rows"></div>
           <p class="adjust-keep">Your crop is untouched while you are in here.</p>
-          <p id="adjustUnsupported" class="note" hidden>This browser cannot apply
-             adjustments to a canvas, so they would not survive the export.</p>
         </div>
       </div>
 
@@ -275,7 +270,7 @@
   </main>
 
   <!-- ---- right rail: what comes out ---- -->
-  <aside class="panel" aria-label="Options">
+  <aside class="panel" aria-label="Export">
     <!-- A grip reads as "drag me" and this cannot be dragged; a full screen with
          no way out reads as a trap. One plain back button, where every other
          back button on the phone is. -->

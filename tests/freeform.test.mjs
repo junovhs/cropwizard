@@ -276,6 +276,41 @@ test('a small frame keeps a middle to drag', () => {
   assert.equal(handleAt({ x: 58, y: 58 }, small, true), 'se');
 });
 
+test('adjustments can be applied without a canvas filter', async () => {
+  const { applyAdjustment } = await import('../dist/src/adjust.js');
+  const pixels = (...rgb) => ({ data: Uint8ClampedArray.from([...rgb, 255]) });
+
+  // Nothing asked for, nothing touched — the common case, and the fast one.
+  const untouched = pixels(10, 120, 250);
+  applyAdjustment(untouched, { exposure: 0, contrast: 0, saturation: 0 });
+  assert.deepEqual([...untouched.data], [10, 120, 250, 255]);
+
+  // Exposure is a multiply: mid-grey at +50% lands half again as bright.
+  const brighter = pixels(100, 100, 100);
+  applyAdjustment(brighter, { exposure: 50, contrast: 0, saturation: 0 });
+  assert.equal(brighter.data[0], 150);
+
+  // Contrast pivots about the middle, so mid-grey is the one value it cannot
+  // move, and everything either side of it spreads.
+  const grey = pixels(128, 128, 128);
+  applyAdjustment(grey, { exposure: 0, contrast: 60, saturation: 0 });
+  assert.ok(Math.abs(grey.data[0] - 128) <= 1);
+  const dark = pixels(64, 64, 64);
+  applyAdjustment(dark, { exposure: 0, contrast: 60, saturation: 0 });
+  assert.ok(dark.data[0] < 64, 'a dark value gets darker');
+
+  // Fully desaturated, all three channels agree on the luminance.
+  const colour = pixels(200, 40, 90);
+  applyAdjustment(colour, { exposure: 0, contrast: 0, saturation: -100 });
+  assert.equal(colour.data[0], colour.data[1]);
+  assert.equal(colour.data[1], colour.data[2]);
+
+  // Alpha is never the adjustment's business.
+  const clear = { data: Uint8ClampedArray.from([200, 40, 90, 17]) };
+  applyAdjustment(clear, { exposure: 40, contrast: 20, saturation: 30 });
+  assert.equal(clear.data[3], 17);
+});
+
 test('the freeform target is the crop, rounded to whole pixels', () => {
   assert.deepEqual(freeformTarget({ cx: 0, cy: 0, cropW: 1833.6, cropH: 1066.5 }), {
     w: 1834, h: 1067, label: FREEFORM_LABEL,

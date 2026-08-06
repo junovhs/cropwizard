@@ -919,6 +919,9 @@ body.is-framing .nav:focus-within { opacity: 1; }
   40%      { box-shadow: 0 0 0 7px oklch(0.55 0.13 155 / 0.3), 0 4px 14px oklch(0.62 0.16 50 / 0.22); }
 }
 .export-button.just-ready { animation: export-ready .8s var(--ease) 2; }
+/* Same beat for the button that opens the export screen on a phone, since that
+   is the one on screen when the queue finishes. */
+.sheet-open.just-ready { animation: export-ready .8s var(--ease) 3; }
 
 /* ---- the batch explainer ----
    Raised once, when a drop puts the app into a mode nobody asked for in words
@@ -1881,6 +1884,8 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   #scaleChip { display: none; }
   .strip-body { gap: 12px; }
   .strip-empty { font-size: 14px; }
+  /* Out of the way while the other job is on screen. */
+  .strip.is-stowed { display: none; }
   .strip-rail {
     gap: 8px;
     scroll-snap-type: x proximity;
