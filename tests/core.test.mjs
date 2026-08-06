@@ -87,6 +87,28 @@ test('store publishes one frozen state per atomic change', () => {
   unsubscribe();
 });
 
+test('a size saved twice is one size with the newer name', async () => {
+  // localStorage is the store; a minimal stand-in is enough to exercise the rule.
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (key) => store.get(key) ?? null,
+    setItem: (key, value) => store.set(key, value),
+  };
+  const { addSaved } = await import('../dist/src/saved.js');
+
+  const first = addSaved('Hero', 300, 400);
+  assert.equal(first.length, 1);
+
+  const again = addSaved('Hero banner', 300, 400);
+  assert.equal(again.length, 1, 'the same pixels do not make a second row');
+  assert.equal(again[0].name, 'Hero banner', 'the name just given wins');
+  assert.equal(again[0].id, first[0].id, 'and it is the same saved size');
+
+  assert.equal(addSaved('Tall', 300, 401).length, 2, 'different pixels, different size');
+  // Rounded first, so 300.4 is the same size as 300.
+  assert.equal(addSaved('Same', 300.4, 400).length, 2);
+});
+
 test('ZIP writer emits a valid empty-free archive envelope', async () => {
   const zip = await makeZip([
     { name: 'a.txt', blob: new Blob(['alpha'], { type: 'text/plain' }) },

@@ -47,13 +47,26 @@ function write(list: readonly SavedSize[]): SavedSize[] {
 export const loadSaved = read;
 
 export function addSaved(name: string, w: number, h: number): SavedSize[] {
+  const list = read();
+  const width = Math.round(w);
+  const height = Math.round(h);
+  // A size is its pixels, so saving the same pair twice is one size with two
+  // names — and a list that grows every time you pin, unpin and pin again. The
+  // name you just gave wins; there is only ever one row for 300 × 400.
+  const already = list.find((size) => size.w === width && size.h === height);
+  if (already) {
+    return write(list.map((size) => (
+      size.id === already.id ? { ...size, name: name.trim() || size.name } : size
+    )));
+  }
+
   const item: SavedSize = {
     id: `saved-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-    name: name.trim() || `${w} × ${h}`,
-    w: Math.round(w),
-    h: Math.round(h),
+    name: name.trim() || `${width} × ${height}`,
+    w: width,
+    h: height,
   };
-  return write([item, ...read()]);
+  return write([item, ...list]);
 }
 
 export function renameSaved(id: string, name: string): SavedSize[] {

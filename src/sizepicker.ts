@@ -10,7 +10,10 @@ const RECENTS_KEY = 'cropwizard.recents';
 const MAX_RECENTS = 5;
 
 interface NamingState extends Dimensions {
+  /** Set when renaming a size that already has a name. */
   readonly id?: string;
+  /** Set when the name is being asked for so the size can be pinned. */
+  readonly pin?: boolean;
 }
 
 export interface SizePickerOptions {
@@ -119,10 +122,21 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
 
   function commitNaming(): void {
     if (!naming) return;
-    const name = input.value.trim();
-    saved = naming.id
-      ? renameSaved(naming.id, name)
-      : addSaved(name, naming.w, naming.h);
+    // Left blank, the pixels are the name. Asking again for something the row
+    // already says out loud would be the app arguing with you.
+    const name = input.value.trim() || `${naming.w} × ${naming.h}`;
+    if (naming.id) {
+      saved = renameSaved(naming.id, name);
+    } else {
+      // A name given for the top bar is kept as a saved size too. Pins are
+      // keyed by pixels, so unpinning would otherwise throw the name away and
+      // ask for it again the next time.
+      saved = addSaved(name, naming.w, naming.h);
+      if (naming.pin) {
+        pins = togglePinned(name, naming.w, naming.h);
+        onPinsChange?.(pins);
+      }
+    }
     naming = null;
     input.value = '';
     cursor = 0;
@@ -142,7 +156,7 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     note.className = 'picker-empty';
     note.textContent = naming.id
       ? 'Type a new name, then press Enter. Escape to leave it alone.'
-      : `Name this size — ${naming.w} × ${naming.h} — then press Enter. Escape to cancel.`;
+      : `What should ${naming.w} × ${naming.h} be called on the top bar? Press Enter. Escape to cancel.`;
     list.append(note);
   }
 
@@ -252,11 +266,23 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
 
       // Any size can be pinned, because the one you reach for every day is as
       // likely to be a preset or a raw pixel pair as something you saved.
+      //
+      // Some rows have a name and some only have a description of themselves —
+      // "300 × 400", "Match this image". A chip on the top bar has to be called
+      // something, so pinning one of those asks what, and that is the only thing
+      // that ever asks. There used to be a separate star for saving a size,
+      // which was a second act doing most of the same job and left people
+      // wondering which one kept it.
       const held = isPinned(pins, result.w, result.h);
+      const unnamed = result.kind === 'custom' || result.kind === 'template' || result.kind === 'whole';
       row.append(rowAction(
         held ? 'Unpin from the top bar' : 'Pin to the top bar',
         icon('pin'),
         () => {
+          if (!held && unnamed) {
+            beginNaming({ w: result.w, h: result.h, pin: true }, '');
+            return;
+          }
           pins = togglePinned(result.name, result.w, result.h);
           onPinsChange?.(pins);
           render();
@@ -264,9 +290,7 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
         held,
       ));
 
-      if (result.kind === 'custom') {
-        row.append(rowAction('Save this size', '☆', () => beginNaming({ w: result.w, h: result.h }, '')));
-      } else if (result.kind === 'saved' && result.savedId) {
+      if (result.kind === 'saved' && result.savedId) {
         const savedId = result.savedId;
         row.append(
           rowAction('Rename this size', '✎', () => beginNaming({ id: savedId, w: result.w, h: result.h }, result.name)),
