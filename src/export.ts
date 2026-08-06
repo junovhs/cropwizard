@@ -45,22 +45,17 @@ export const scaledTarget = (target: OutputTarget, scale: ExportScale = 1): Outp
 function cropPixels(item: CropItem, f: NonNullable<CropItem['frame']>): ImageData | null {
   const iw = item.image.naturalWidth;
   const ih = item.image.naturalHeight;
-  // Not clamped into the picture: zoomed out below 100% the crop is deliberately
-  // larger than what is in it, and clamping would silently return the sides the
-  // user had just decided to keep room around. The rectangle is cut at the size
-  // asked for and the picture is drawn into its place inside it — whatever is
-  // left over stays transparent, which is exactly what the frame was showing.
-  const x = Math.round(f.cx - f.cropW / 2);
-  const y = Math.round(f.cy - f.cropH / 2);
-  const w = Math.max(1, Math.round(f.cropW));
-  const h = Math.max(1, Math.round(f.cropH));
-  if (x >= iw || y >= ih || x + w <= 0 || y + h <= 0) return null;
+  const x = Math.max(0, Math.floor(f.cx - f.cropW / 2));
+  const y = Math.max(0, Math.floor(f.cy - f.cropH / 2));
+  const w = Math.min(iw - x, Math.max(1, Math.round(f.cropW)));
+  const h = Math.min(ih - y, Math.max(1, Math.round(f.cropH)));
+  if (w < 1 || h < 1) return null;
 
   const cut = document.createElement('canvas');
   cut.width = w;
   cut.height = h;
   const ctx = canvasContext(cut);
-  ctx.drawImage(item.image, 0, 0, iw, ih, -x, -y, iw, ih);
+  ctx.drawImage(item.image, x, y, w, h, 0, 0, w, h);
   return ctx.getImageData(0, 0, w, h);
 }
 

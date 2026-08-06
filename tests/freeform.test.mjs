@@ -186,17 +186,14 @@ test('a freeform crop cannot leave the image or collapse', () => {
   assert.equal(crushedNw.h, 44);
 });
 
-test('the zoom slider spans 10% to 800% and lands on 100% in between', () => {
-  const range = { min: 0.1, max: 8 };
+test('the zoom slider runs from covering the frame to eight times it', () => {
+  const range = { min: 1, max: 8 };
   const TICKS = 1000;
 
-  assert.ok(Math.abs(zoomFromTick(0, TICKS, range) - 0.1) < 1e-12, 'the bottom end is 10%');
-  assert.ok(Math.abs(zoomFromTick(TICKS, TICKS, range) - 8) < 1e-12, 'the top end is 800%');
-
-  // 100% is a real landmark on the track, not an end of it.
-  const hundred = tickFromZoom(1, TICKS, range);
-  assert.ok(hundred > 0 && hundred < TICKS);
-  assert.ok(Math.abs(zoomFromTick(hundred, TICKS, range) - 1) < 0.005);
+  // The floor is exactly "the picture covers the frame". Below it the frame
+  // would be larger than the picture, which is not a crop of anything.
+  assert.equal(zoomFromTick(0, TICKS, range), 1);
+  assert.ok(Math.abs(zoomFromTick(TICKS, TICKS, range) - 8) < 1e-12);
 
   // Logarithmic: the same number of ticks is the same proportional step
   // wherever you are, which is the point of the control.
@@ -205,7 +202,7 @@ test('the zoom slider spans 10% to 800% and lands on 100% in between', () => {
   const high = zoomFromTick(TICKS, TICKS, range) / zoomFromTick(TICKS - step, TICKS, range);
   assert.ok(Math.abs(low - high) < 1e-9);
 
-  for (const zoom of [0.1, 0.25, 1, 2.5, 8]) {
+  for (const zoom of [1, 1.5, 2.5, 8]) {
     const round = zoomFromTick(tickFromZoom(zoom, TICKS, range), TICKS, range);
     assert.ok(Math.abs(round - zoom) / zoom < 0.005, `${zoom} survives the round trip`);
   }
