@@ -1521,7 +1521,14 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
    ========================================================================= */
 
 @media (max-width: 900px) {
-  :root { --header: 56px; }
+  /* The 1.25 zoom is a desktop lever: it buys legibility out of a screen that
+     has width to spare. A phone has none, and the zoom was quietly taking a
+     quarter of it — a 390px handset laid out in 312px while every media query
+     here still read 390, so every width budgeted in this block was a quarter
+     too generous and the tab bar ran off the side of the screen. Worse, the
+     narrow-phone rules below key off a width the layout never actually had.
+     At 1 the numbers in this block are the numbers on the glass. */
+  :root { --ui-scale: 1; --header: 56px; }
 
   .app {
     grid-template-columns: minmax(0, 1fr);
@@ -1571,15 +1578,21 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
     border-top: 1px solid var(--line);
     overflow: visible;
   }
-  .nav { flex: 1; flex-direction: row; gap: 6px; }
+  .rail { flex-wrap: nowrap; }
+  .nav { flex: 1 1 auto; min-width: 0; flex-direction: row; gap: 6px; }
   .nav-item {
-    flex: 1;
+    flex: 1 1 auto;
+    /* Without this a flex item refuses to go below its content width, which is
+       how a tab bar ends up wider than the phone. A name that runs out of room
+       gives up its last letters; the row never gives up the screen. */
+    min-width: 0;
     justify-content: center;
     gap: 8px;
     min-height: 44px;
     font-size: 12.5px;
     white-space: nowrap;
   }
+  .nav-label { overflow: hidden; text-overflow: ellipsis; }
   /* "Crop & Resize" is a rail-width label. In a tab bar the noun is enough. */
   .nav-label-more { display: none; }
   .rail-foot { display: none; }
@@ -1671,8 +1684,17 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   /* Stage chrome shrinks so the picture keeps the screen. Three view names and
      a mode button will not cross a phone, so the names go short and the labels
      that are only there to be read stay on the elements. */
-  .stage-tools { right: 12px; top: 12px; gap: 6px; }
-  .stage-tools-left { right: auto; left: 12px; }
+  /* The right-hand tools are given a hard left edge clear of the history
+     buttons and allowed to wrap inside it. Two groups that merely add up to
+     less than the screen is a sum that stops being true on the next handset;
+     a boundary cannot be overrun by arithmetic. */
+  .stage-tools {
+    left: 84px; right: 12px; top: 12px;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .stage-tools-left { left: 12px; right: auto; width: auto; flex-wrap: nowrap; }
   .stage-segmented button { padding: 0 9px; font-size: 11px; }
   .view-long { display: none; }
   .view-short { display: inline; }
