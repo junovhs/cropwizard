@@ -167,9 +167,21 @@
              from the row rather than sitting there doing nothing. -->
         <div id="viewMode" class="segmented stage-segmented" role="radiogroup"
           aria-label="How the frame is shown" hidden>
-          <button type="button" role="radio" data-view="small" aria-checked="false" hidden>Smaller</button>
-          <button type="button" role="radio" data-view="true" aria-checked="true">True size</button>
-          <button type="button" role="radio" data-view="fit" aria-checked="false" hidden>Enlarged for editing</button>
+          <!-- Two labels, one meaning. The short one is all a phone has room
+               for; the name that is read out is stated on the button so it does
+               not change with the screen. -->
+          <button type="button" role="radio" data-view="small" aria-checked="false"
+            aria-label="Smaller" hidden>
+            <span class="view-long">Smaller</span><span class="view-short">Small</span>
+          </button>
+          <button type="button" role="radio" data-view="true" aria-checked="true"
+            aria-label="True size">
+            <span class="view-long">True size</span><span class="view-short">1:1</span>
+          </button>
+          <button type="button" role="radio" data-view="fit" aria-checked="false"
+            aria-label="Enlarged for editing" hidden>
+            <span class="view-long">Enlarged for editing</span><span class="view-short">Fit</span>
+          </button>
         </div>
       </div>
 
@@ -207,7 +219,7 @@
           <!-- Sharpness is the consequence of the zoom, so it is stated on the
                control that causes it: push in, watch it fall. Apart, they were
                two numbers on the same screen with no visible connection. -->
-          <span id="qualityChip" class="chip zoom-quality good">Quality <strong id="quality">—</strong></span>
+          <span id="qualityChip" class="chip zoom-quality good"><span class="quality-word">Quality </span><strong id="quality">—</strong></span>
           <button id="zoomOut" class="zoom-step" type="button" aria-label="Zoom out" title="Zoom out">−</button>
           <input id="zoomSlider" class="zoom-slider" type="range" min="0" max="1000" step="1" value="0"
             aria-label="Zoom">

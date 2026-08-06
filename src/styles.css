@@ -549,6 +549,9 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .stage-segmented button[hidden] { display: none; }
 .stage-segmented[hidden] { display: none; }
 .stage-segmented button { padding: 0 12px; white-space: nowrap; }
+/* The long label is the real one. The short one only exists because a phone
+   cannot hold three of them across the top of the picture. */
+.view-short { display: none; }
 
 /* ---- zoom ----
    Bottom right, opposite the readout: the same family as the other stage
@@ -1582,7 +1585,9 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   .rail-foot { display: none; }
 
   /* In the tab bar the switch is one more control on the row: no rule above it
-     and no room for a sentence explaining it, so the state pill carries it. */
+     and no room for a sentence explaining it. On a phone the pill spelling out
+     "OFF" goes too — four controls have to cross the screen, and the lit accent
+     state says the same thing in no width at all. */
   .rail-batch { flex: 0 0 auto; margin: 0; padding: 0; border-top: 0; }
   .batch-toggle {
     width: auto;
@@ -1593,7 +1598,7 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
     white-space: nowrap;
   }
   .rail-note { display: none; }
-  .batch-state { margin-left: 0; }
+  .batch-state { display: none; }
 
   .sheet-open {
     display: inline-flex;
@@ -1663,18 +1668,36 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   }
   .sheet-toggle:checked ~ .app .sheet-scrim { opacity: 1; pointer-events: auto; }
 
-  /* Stage chrome shrinks so the picture keeps the screen. */
+  /* Stage chrome shrinks so the picture keeps the screen. Three view names and
+     a mode button will not cross a phone, so the names go short and the labels
+     that are only there to be read stay on the elements. */
   .stage-tools { right: 12px; top: 12px; gap: 6px; }
   .stage-tools-left { right: auto; left: 12px; }
-  .stage-segmented button { padding: 0 8px; font-size: 11px; }
-  .zoom-quality { padding: 2px 7px 2px 4px; }
-  /* Too narrow for a row: the chips take the line above the zoom control. */
+  .stage-segmented button { padding: 0 9px; font-size: 11px; }
+  .view-long { display: none; }
+  .view-short { display: inline; }
+  .freeform-tool { padding: 0 9px; font-size: 11px; }
+  .stage-tool { min-height: 34px; }
+
+  /* The zoom control takes a line of its own rather than fighting the chips for
+     one: the slider is the whole point of it, and a slider squeezed to a stub
+     is a control you cannot aim. */
   .stage-foot { left: 12px; right: 12px; bottom: 12px; gap: 8px; }
   .readout { gap: 5px; }
   .chip { padding: 3px 8px; font-size: 10.5px; }
+  .zoom-tool { flex: 1 1 100%; margin-left: 0; }
+  .zoom-slider { width: auto; flex: 1 1 auto; min-width: 40px; }
+  /* Next to the number it is describing, "Quality" is a word doing no work. */
+  .quality-word { display: none; }
+  .zoom-quality { padding: 2px 8px 2px 4px; }
+  /* Anything under 16px makes iOS zoom the whole page the moment it is tapped,
+     which throws the layout away to edit two digits. */
+  .zoom-value { font-size: 16px; width: 42px; }
+  .zoom-step { min-width: 32px; min-height: 32px; }
 
-  /* On a phone the beat takes the full width, still clear of the readouts. */
-  .framing { left: 12px; right: 12px; bottom: 46px; transform: none; }
+  /* On a phone the beat takes the full width, still clear of the readouts —
+     which are two lines tall here, so it sits higher than on the desktop. */
+  .framing { left: 12px; right: 12px; bottom: 92px; transform: none; }
   .framing-go { width: 100%; }
 
   .coach-panel { padding: 24px 22px 22px; }
@@ -1683,11 +1706,24 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   .adjust { left: 12px; right: 12px; bottom: 12px; width: auto; padding: 15px; }
   .adjust-row { grid-template-columns: 62px 1fr 38px; }
 
+  /* The queue is a thumb-flick, so it gets momentum and stops where a thumbnail
+     starts rather than halfway through one. Its buttons take the same 44px
+     every other target on this screen does. */
+  /* No safe-area padding here: the tab bar sits below the queue and already
+     carries it, and paying for the same inset twice is a gap, not a margin. */
   .strip { padding: 10px 14px; }
   .strip-head { flex-wrap: wrap; gap: 8px; }
   .strip-head .progress { flex-basis: 100%; order: -1; }
+  .strip-head button { min-height: 40px; }
   .strip-body { gap: 12px; }
   .strip-empty { font-size: 14px; }
+  .strip-rail {
+    gap: 8px;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .thumb { scroll-snap-align: center; }
 
   .empty-inner { padding: 34px 22px; }
   .empty h1 { font-size: 23px; }
@@ -1702,7 +1738,10 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
     border-radius: 0;
     transform: none;
   }
+  /* Every text field on this screen clears 16px, or iOS zooms the whole page
+     the moment it is tapped and the layout you designed is gone. */
   .picker-input { font-size: 16px; }
+  .text-input { font-size: 16px; }
   .picker-foot { gap: 10px; font-size: 10.5px; }
 }
 
@@ -1711,6 +1750,11 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
    need to be told the sheet also exports. */
 @media (max-width: 440px) {
   .sheet-open-more { display: none; }
+  /* The stage's two tool corners have to cross the narrowest screen we support
+     without meeting in the middle. */
+  .stage-tools { gap: 5px; }
+  .stage-segmented button { padding: 0 7px; font-size: 10.5px; }
+  .freeform-tool { padding: 0 8px; font-size: 10.5px; }
 }
 
 /* Only when even that will not fit do the icons carry the modes alone. */

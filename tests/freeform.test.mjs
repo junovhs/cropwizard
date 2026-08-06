@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { frameFit } from '../dist/src/application/frame-view.js';
+import { handleAt } from '../dist/src/application/handles.js';
 import { tickFromZoom, zoomFromTick } from '../dist/src/application/zoom.js';
 import {
   FREEFORM_LABEL,
@@ -243,6 +244,36 @@ test('a view that would show the same picture is not offered', () => {
   const past = frameFit('small', 3, 320);
   assert.equal(past.shrinkable, true);
   assert.ok(past.scale > 0.4 && past.scale < 1);
+});
+
+test('a finger reaches a handle it could never hit with a cursor', () => {
+  const frame = { x: 100, y: 100, w: 400, h: 300 };
+
+  // 30px out from the top-left corner: a miss for a cursor, plainly a reach for
+  // the corner when the thing reaching is a fingertip you cannot see under.
+  assert.equal(handleAt({ x: 130, y: 130 }, frame), 'move');
+  assert.equal(handleAt({ x: 130, y: 130 }, frame, true), 'nw');
+
+  // The same widening on the edges, which are the harder targets of the two.
+  assert.equal(handleAt({ x: 300, y: 120 }, frame), 'move');
+  assert.equal(handleAt({ x: 300, y: 120 }, frame, true), 'n');
+  assert.equal(handleAt({ x: 480, y: 250 }, frame), 'move');
+  assert.equal(handleAt({ x: 480, y: 250 }, frame, true), 'e');
+
+  // Dead centre is always the crop itself, and outside is always the picture.
+  assert.equal(handleAt({ x: 300, y: 250 }, frame, true), 'move');
+  assert.equal(handleAt({ x: 20, y: 20 }, frame, true), null);
+  assert.equal(handleAt({ x: 700, y: 250 }, frame, true), null);
+});
+
+test('a small frame keeps a middle to drag', () => {
+  // 60 x 60 with a finger's reach: unbounded, every handle region would cover
+  // the whole box and the crop could be resized but never moved.
+  const small = { x: 0, y: 0, w: 60, h: 60 };
+  assert.equal(handleAt({ x: 30, y: 30 }, small, true), 'move');
+  // The corners still answer where corners are.
+  assert.equal(handleAt({ x: 2, y: 2 }, small, true), 'nw');
+  assert.equal(handleAt({ x: 58, y: 58 }, small, true), 'se');
 });
 
 test('the freeform target is the crop, rounded to whole pixels', () => {

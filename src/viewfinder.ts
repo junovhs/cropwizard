@@ -15,33 +15,40 @@ import { Spring, Pulse, createLoop, clamp } from './juice.js';
 import { filterFor } from './adjust.js';
 import { resizeFree } from './application/freeform.js';
 import { frameFit, type FrameView } from './application/frame-view.js';
+import { handleAt, type FrameHandle } from './application/handles.js';
 import { canvasContext } from './infrastructure/dom.js';
 import type { Adjustment, Framing } from './domain/types.js';
 
 const GHOST_IDLE = 0.12;      // what you keep seeing of the discarded image
 const GHOST_ACTIVE = 0.34;    // ...and how much it lifts while you work
-const FRAME_PAD = 76;         // breathing room between frame and stage edge
+const FRAME_PAD = 76;         // most breathing room between frame and stage edge
+const FRAME_PAD_MIN = 22;     // ...and the least, once the stage is a phone
+const FRAME_PAD_SHARE = 0.085; // in between, a share of the smaller dimension
+// Extra room top and bottom on a narrow stage, where the tools and the readouts
+// sit right on the picture and a frame paying no attention to them ends up
+// underneath them.
+const CHROME_PAD = 34;
+const NARROW_STAGE = 620;
 const MAX_ZOOM = 8;           // relative to the minimum covering scale
 // The floor is exactly "the picture covers the frame". Going below it was tried
 // and taken back out: it made the frame bigger than the picture, which is a
 // crop box that no longer describes a crop, and it quietly turned the export
 // into a matte nobody asked for. Wanting a smaller *view* is a real wish, but
-// it is a question about the frame's size on screen — what `fitMode` already
+// it is a question about the frame's size on screen — which is what `frameView`
 // answers — not about how much picture is behind it.
 const MIN_ZOOM = 1;
 const SNAP_PX = 7;            // magnetic pull toward a centred framing
 const MIN_FRAME_PX = 44;       // smallest useful crop box on screen
-const CORNER_HIT = 18;         // forgiving pointer target around corner handles
-const EDGE_HIT = 12;           // forgiving pointer target around edge handles
 
 export type { FrameView };
 
 interface Point { readonly x: number; readonly y: number; }
 interface FrameRect { readonly x: number; readonly y: number; readonly w: number; readonly h: number; }
-type FrameHandle = 'move' | 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+/** `pan` is the one gesture that moves the picture rather than the crop box. */
+type DragKind = FrameHandle | 'pan';
 interface DragState {
   readonly pointerId: number;
-  readonly handle: FrameHandle;
+  readonly handle: DragKind;
   readonly from: Point;
   readonly frame: FrameRect;
 }
@@ -167,9 +174,17 @@ export function createViewfinder(
     };
   }
 
+  // Air around the frame, as a share of the stage rather than a fixed number:
+  // 76px is right beside a desktop stage and most of a phone.
+  function framePad(): Point {
+    const base = Math.min(FRAME_PAD, Math.max(FRAME_PAD_MIN, Math.min(vw, vh) * FRAME_PAD_SHARE));
+    return { x: base, y: base + (vw < NARROW_STAGE ? CHROME_PAD : 0) };
+  }
+
   function canonicalFrame(): FrameRect {
-    const roomW = Math.max(40, vw - FRAME_PAD * 2);
-    const roomH = Math.max(40, vh - FRAME_PAD * 2);
+    const pad = framePad();
+    const roomW = Math.max(40, vw - pad.x * 2);
+    const roomH = Math.max(40, vh - pad.y * 2);
     const fit = frameFit(frameView, Math.min(roomW / targetW, roomH / targetH), Math.max(targetW, targetH));
     frameScale = fit.scale;
     enlargeable = fit.enlargeable;
@@ -451,8 +466,10 @@ export function createViewfinder(
 
     // A tiny accent lift confirms which part of the frame is live without
     // turning the crop into a selection marquee.
+    // 'pan' is excluded by name, not by luck: it contains an "n" and would
+    // otherwise light the north edge every time you dragged the picture.
     const active = dragging?.handle ?? hoverHandle;
-    if (active && active !== 'move') {
+    if (active && active !== 'move' && active !== 'pan') {
       ctx.strokeStyle = 'rgba(186, 88, 44, .95)';
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -498,33 +515,12 @@ export function createViewfinder(
     loop.kick();
   }
 
-  function contains(p: Point, r: FrameRect, pad = 0): boolean {
-    return p.x >= r.x - pad && p.x <= r.x + r.w + pad
-      && p.y >= r.y - pad && p.y <= r.y + r.h + pad;
-  }
-
-  function hitTest(p: Point): FrameHandle | null {
-    const f = frameRect();
-    const left = Math.abs(p.x - f.x) <= CORNER_HIT;
-    const right = Math.abs(p.x - (f.x + f.w)) <= CORNER_HIT;
-    const top = Math.abs(p.y - f.y) <= CORNER_HIT;
-    const bottom = Math.abs(p.y - (f.y + f.h)) <= CORNER_HIT;
-    const across = p.x >= f.x - CORNER_HIT && p.x <= f.x + f.w + CORNER_HIT;
-    const down = p.y >= f.y - CORNER_HIT && p.y <= f.y + f.h + CORNER_HIT;
-
-    if (left && top) return 'nw';
-    if (right && top) return 'ne';
-    if (right && bottom) return 'se';
-    if (left && bottom) return 'sw';
-    if (top && across && Math.abs(p.y - f.y) <= EDGE_HIT) return 'n';
-    if (right && down && Math.abs(p.x - (f.x + f.w)) <= EDGE_HIT) return 'e';
-    if (bottom && across && Math.abs(p.y - (f.y + f.h)) <= EDGE_HIT) return 's';
-    if (left && down && Math.abs(p.x - f.x) <= EDGE_HIT) return 'w';
-    return contains(p, f) ? 'move' : null;
-  }
+  const hitTest = (p: Point, coarse = false): FrameHandle | null =>
+    handleAt(p, frameRect(), coarse);
 
   function cursorFor(handle: FrameHandle | null): string {
-    if (!handle) return 'default';
+    // Outside the frame is the picture, and the picture can be dragged.
+    if (!handle) return 'grab';
     if (handle === 'move') return 'move';
     if (handle === 'n' || handle === 's') return 'ns-resize';
     if (handle === 'e' || handle === 'w') return 'ew-resize';
@@ -640,12 +636,22 @@ export function createViewfinder(
     // The second finger may land outside the frame; once a gesture is already
     // under way it still belongs to that gesture.
     if (pointers.size === 0) {
-      const handle = hitTest(p);
-      if (!handle) return;
-      interruptMorph();
-      dragging = { pointerId: e.pointerId, handle, from: p, frame: frameRect() };
+      // Outside the frame is not "nothing to do": it is the part of the picture
+      // you are about to bring in, so the drag pans the image beneath the crop.
+      // Returning early here also lost the pointer itself — it was never
+      // registered, so a second finger read as a first one and a pinch that
+      // began anywhere but inside the crop box could not start at all.
+      const handle = hitTest(p, e.pointerType !== 'mouse');
+      // A gesture on the frame takes over the return animation where it stands.
+      // A gesture on the picture is an image gesture like the wheel or a pinch,
+      // so it lets the frame finish going home first — otherwise a stray tap on
+      // the ghost would leave the frame stranded halfway back.
+      if (handle) interruptMorph();
+      else normalizeFrameImmediately();
+      dragging = { pointerId: e.pointerId, handle: handle ?? 'pan', from: p, frame: frameRect() };
       hoverHandle = handle;
-      canvas.style.cursor = handle === 'move' ? 'grabbing' : cursorFor(handle);
+      canvas.style.cursor = handle === null ? 'grabbing'
+        : handle === 'move' ? 'grabbing' : cursorFor(handle);
       beginInteraction();
     }
 
@@ -673,10 +679,13 @@ export function createViewfinder(
   function onPointerMove(e: PointerEvent): void {
     if (!image) return;
     const point = localPoint(e);
-    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, localPoint(e));
+    // Where this pointer was a moment ago, read before it is overwritten: a pan
+    // is the step it just took, not the distance from where it started.
+    const previous = pointers.get(e.pointerId) ?? point;
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, point);
 
     if (pointers.size === 0) {
-      const next = hitTest(point);
+      const next = hitTest(point, e.pointerType !== 'mouse');
       if (next !== hoverHandle) {
         hoverHandle = next;
         canvas.style.cursor = cursorFor(next);
@@ -700,7 +709,14 @@ export function createViewfinder(
     if (!dragging || dragging.pointerId !== e.pointerId) return;
     const dx = point.x - dragging.from.x;
     const dy = point.y - dragging.from.y;
-    if (dragging.handle === 'move') {
+    if (dragging.handle === 'pan') {
+      // Outside the frame the picture moves, not the box. By the step just
+      // taken rather than the distance from where the finger went down: the
+      // image is clamped as it goes, and an absolute offset would keep piling
+      // up against a wall it has already reached.
+      panBy(point.x - previous.x, point.y - previous.y);
+      loop.kick();
+    } else if (dragging.handle === 'move') {
       const l = legalFramePosition(
         dragging.frame.x + dx,
         dragging.frame.y + dy,
@@ -721,7 +737,9 @@ export function createViewfinder(
   }
 
   function onPointerUp(e: PointerEvent): void {
-    const frameEdited = !!dragging;
+    // A pan moved the picture under a frame that never left home, so there is
+    // nothing to recentre — only the transform to let settle.
+    const frameEdited = !!dragging && dragging.handle !== 'pan';
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
     if (pointers.size === 0) {
