@@ -2,6 +2,7 @@
 // same on Windows (npm runs scripts through cmd.exe) as it does on a shell.
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { writeIcon } from './raster-icon.mjs';
 
 /**
  * Which build this is, stamped into the page.
@@ -30,6 +31,13 @@ const page = readFileSync('index.html', 'utf8')
 writeFileSync('dist/index.html', page);
 
 cpSync('src/styles.css', 'dist/src/styles.css');
+cpSync('src/favicon.svg', 'dist/src/favicon.svg');
+
+// The tab icon is the SVG above; these are for the places that will not take
+// one — a 32px square for browsers with no SVG-favicon support, and the 180px
+// square iOS puts on a home screen, which never uses the SVG.
+writeIcon('dist/favicon.png', 32);
+writeIcon('dist/src/apple-touch-icon.png', 180);
 // Vendored typefaces (DEC-01: no third-party requests at runtime). The licence
 // travels with them, so the whole directory is copied rather than the woff2s.
 cpSync('src/fonts', 'dist/src/fonts', { recursive: true });

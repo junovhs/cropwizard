@@ -1,0 +1,18 @@
+<!-- The app's own crop mark, at the size a tab shows it.
+     Same two strokes as the `crop` glyph in src/icons.ts and the same accent as
+     everything else the app draws in — computed from oklch(0.525 0.145 43), the
+     --accent token, so the tab and the wordmark are one colour rather than two
+     that nearly match. Vendored rather than fetched (DEC-01).
+
+     The 24-unit glyph is scaled to 20 and centred on a 32-unit tile, and the
+     stroke is thickened from 2 to 2.6: at 16px a hairline disappears into the
+     background, which is the one size a favicon has to survive. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#f7f5f1"/>
+  <g transform="translate(6 6) scale(0.8333)"
+     fill="none" stroke="#ac4714" stroke-width="2.6"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 2v14a2 2 0 0 0 2 2h14"/>
+    <path d="M18 22V8a2 2 0 0 0-2-2H2"/>
+  </g>
+</svg>
