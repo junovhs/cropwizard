@@ -323,6 +323,10 @@
         <span id="exportFill" class="export-fill" aria-hidden="true"></span>
       </button>
       <p class="note" id="exportNote">Nothing to export yet.</p>
+      <!-- Which build you are looking at. A deploy takes a minute to reach a
+           phone and the page looks the same either way, so "is this the new
+           one?" was being answered by testing rather than by reading. -->
+      <p class="build-id" title="Build">{{build}}</p>
     </section>
   </aside>
 

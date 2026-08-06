@@ -1141,6 +1141,16 @@ body.is-framing .thumb.is-active { box-shadow: 0 0 0 3px var(--accent-soft), var
 .block-export { margin-top: 26px; padding-top: 24px; border-top: 1px solid var(--line); }
 
 .note { margin: 9px 0 0; color: var(--ink-3); font-size: 11.5px; line-height: 1.5; }
+
+/* The build, stated once and quietly. Nobody needs it until they need it. */
+.build-id {
+  margin: 14px 0 0;
+  color: var(--ink-4);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-align: center;
+  user-select: all;
+}
 .field-label { color: var(--ink-2); font-size: 12px; font-weight: 500; }
 
 /* ---- output size ---- */
