@@ -1389,7 +1389,12 @@ body.is-framing .thumb.is-active { box-shadow: 0 0 0 3px var(--accent-soft), var
 .picker {
   position: fixed; inset: 0; z-index: 40;
   display: grid; place-items: start center;
-  padding: 12vh 16px 16px;
+  /* The bottom is a real gap in this box rather than a fraction of the viewport
+     measured somewhere else. `max-height: 70vh` under the root's 1.25 zoom
+     resolved to 87% of the screen starting 15% down it, which is a panel whose
+     last rows were below the fold — the list scrolls, so nobody could tell the
+     difference between "more sizes" and "off the end of the page". */
+  padding: 11vh 16px 20px;
   background: oklch(0.55 0.02 70 / 0.28);
   backdrop-filter: blur(3px);
   opacity: 0;
@@ -1402,7 +1407,9 @@ body.is-framing .thumb.is-active { box-shadow: 0 0 0 3px var(--accent-soft), var
   display: flex;
   flex-direction: column;
   width: min(620px, 100%);
-  max-height: 70vh;
+  /* Of the padded box above, so the gap under it is the padding and holds
+     whatever the viewport turns out to be. */
+  max-height: 100%;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -1470,6 +1477,40 @@ body.is-framing .thumb.is-active { box-shadow: 0 0 0 3px var(--accent-soft), var
 .picker-text { display: grid; flex: 1; min-width: 0; }
 .picker-text strong { color: var(--ink); font-size: 13.5px; font-weight: 600; }
 .picker-text span { color: var(--ink-3); font-size: 11.5px; }
+
+/* A name you gave is a name you can change, and the thing you want to change is
+   the text — so the text is the target, not a pencil beside it. It says so on
+   hover and stays perfectly quiet otherwise: a row full of affordances is a row
+   you read instead of scan. `justify-self: start` keeps the underline to the
+   width of the word rather than the width of the column. */
+.picker-name-edit {
+  justify-self: start;
+  padding: 1px 5px;
+  margin: -1px -5px;
+  border-radius: var(--radius-sm);
+  cursor: text;
+}
+.picker-name-edit:hover {
+  background: oklch(0.55 0.02 70 / 0.09);
+  box-shadow: inset 0 -1px 0 var(--ink-4);
+}
+
+/* The same word, become a field, in the same place and at the same size — so
+   the row does not jump when it turns into one. */
+.picker-rename {
+  justify-self: start;
+  width: 100%;
+  padding: 1px 5px;
+  margin: -1px -5px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: oklch(1 0 0 / 0.95);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  outline: none;
+}
 .picker-ratio {
   flex: 0 0 auto;
   padding: 2px 8px;

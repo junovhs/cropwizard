@@ -9,12 +9,8 @@ import type { Dimensions, PinnedSize, SavedSize, SizeResult } from './domain/typ
 const RECENTS_KEY = 'cropwizard.recents';
 const MAX_RECENTS = 5;
 
-interface NamingState extends Dimensions {
-  /** Set when renaming a size that already has a name. */
-  readonly id?: string;
-  /** Set when the name is being asked for so the size can be pinned. */
-  readonly pin?: boolean;
-}
+/** A size waiting to be told what it is called, so it can go on the top bar. */
+type NamingState = Dimensions;
 
 export interface SizePickerOptions {
   readonly root: HTMLElement;
@@ -111,11 +107,35 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
   let pins: PinnedSize[] = loadPinned();
   let template: Dimensions | null = null;
   let naming: NamingState | null = null;
+  // The saved size whose name is being edited in place. A pencil beside the row
+  // was a second target for a job the name itself can do: the text is what you
+  // want to change, so the text is what you click.
+  let renamingId: string | null = null;
 
-  function beginNaming(next: NamingState, suggestion: string): void {
+  function commitRename(value: string): void {
+    if (!renamingId) return;
+    saved = renameSaved(renamingId, value);
+    renamingId = null;
+    render();
+  }
+
+  function cancelRename(): void {
+    if (!renamingId) return;
+    renamingId = null;
+    render();
+  }
+
+  /** Whatever is in the field right now, kept — without a re-render. */
+  function keepPendingRename(): void {
+    if (!renamingId) return;
+    const field = list.querySelector<HTMLInputElement>('.picker-rename');
+    if (field) saved = renameSaved(renamingId, field.value);
+    renamingId = null;
+  }
+
+  function beginNaming(next: NamingState): void {
     naming = next;
-    input.value = suggestion;
-    input.select();
+    input.value = '';
     input.focus();
     render();
   }
@@ -125,18 +145,12 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     // Left blank, the pixels are the name. Asking again for something the row
     // already says out loud would be the app arguing with you.
     const name = input.value.trim() || `${naming.w} × ${naming.h}`;
-    if (naming.id) {
-      saved = renameSaved(naming.id, name);
-    } else {
-      // A name given for the top bar is kept as a saved size too. Pins are
-      // keyed by pixels, so unpinning would otherwise throw the name away and
-      // ask for it again the next time.
-      saved = addSaved(name, naming.w, naming.h);
-      if (naming.pin) {
-        pins = togglePinned(name, naming.w, naming.h);
-        onPinsChange?.(pins);
-      }
-    }
+    // A name given for the top bar is kept as a saved size too. Pins are keyed
+    // by pixels, so unpinning would otherwise throw the name away and ask for
+    // it again the next time.
+    saved = addSaved(name, naming.w, naming.h);
+    pins = togglePinned(name, naming.w, naming.h);
+    onPinsChange?.(pins);
     naming = null;
     input.value = '';
     cursor = 0;
@@ -154,9 +168,8 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     if (!naming) return;
     const note = document.createElement('p');
     note.className = 'picker-empty';
-    note.textContent = naming.id
-      ? 'Type a new name, then press Enter. Escape to leave it alone.'
-      : `What should ${naming.w} × ${naming.h} be called on the top bar? Press Enter. Escape to cancel.`;
+    note.textContent =
+      `What should ${naming.w} × ${naming.h} be called on the top bar? Press Enter. Escape to cancel.`;
     list.append(note);
   }
 
@@ -250,11 +263,44 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
 
       const text = document.createElement('span');
       text.className = 'picker-text';
-      const name = document.createElement('strong');
-      name.textContent = result.name;
       const detail = document.createElement('span');
       detail.textContent = result.detail;
-      text.append(name, detail);
+      const savedId = result.kind === 'saved' ? result.savedId : undefined;
+
+      if (savedId && savedId === renamingId) {
+        // The name, become a field, exactly where the name was. Enter keeps it
+        // and so does clicking away; Escape leaves it as it was.
+        const field = document.createElement('input');
+        field.type = 'text';
+        field.className = 'picker-rename';
+        field.value = result.name;
+        field.setAttribute('aria-label', 'Size name');
+        field.addEventListener('mousedown', (event) => event.stopPropagation());
+        field.addEventListener('blur', () => commitRename(field.value));
+        field.addEventListener('keydown', (event) => {
+          // The list's own arrow and Enter handling belongs to the search box.
+          event.stopPropagation();
+          if (event.key === 'Enter') { event.preventDefault(); commitRename(field.value); }
+          if (event.key === 'Escape') { event.preventDefault(); cancelRename(); }
+        });
+        text.append(field, detail);
+      } else {
+        const name = document.createElement('strong');
+        name.textContent = result.name;
+        if (savedId) {
+          name.className = 'picker-name-edit';
+          name.title = 'Click to rename';
+          // Stopped and prevented: this click is about the name, and the row
+          // beneath it would otherwise take it as "use this size" and close.
+          name.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            renamingId = savedId;
+            render();
+          });
+        }
+        text.append(name, detail);
+      }
 
       const dims = document.createElement('span');
       dims.className = 'picker-dims';
@@ -280,7 +326,7 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
         icon('pin'),
         () => {
           if (!held && unnamed) {
-            beginNaming({ w: result.w, h: result.h, pin: true }, '');
+            beginNaming({ w: result.w, h: result.h });
             return;
           }
           pins = togglePinned(result.name, result.w, result.h);
@@ -290,15 +336,12 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
         held,
       ));
 
-      if (result.kind === 'saved' && result.savedId) {
-        const savedId = result.savedId;
-        row.append(
-          rowAction('Rename this size', '✎', () => beginNaming({ id: savedId, w: result.w, h: result.h }, result.name)),
-          rowAction('Delete this size', '✕', () => {
-            saved = removeSaved(savedId);
-            render();
-          }),
-        );
+      if (savedId) {
+        row.append(rowAction('Delete this size', '✕', () => {
+          renamingId = null;
+          saved = removeSaved(savedId);
+          render();
+        }));
       }
 
       row.addEventListener('mousedown', (event) => {
@@ -309,6 +352,13 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       list.append(row);
     });
     scrollToCursor();
+
+    // Focused after the list exists, since that is when the field is in it.
+    if (renamingId) {
+      const field = list.querySelector<HTMLInputElement>('.picker-rename');
+      field?.focus();
+      field?.select();
+    }
   }
 
   function setCursor(next: number): void {
@@ -331,6 +381,10 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
   }
 
   function choose(index = cursor, shape = false): void {
+    // A row's mousedown prevents the default, so focus never leaves the rename
+    // field and its blur never fires. The edit is kept here instead of being
+    // lost to the click that moved on.
+    keepPendingRename();
     const row = rows[index];
     if (!row) return;
     const result = shape ? ratioAnswer(row) ?? row : row;
@@ -364,6 +418,7 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
   }
 
   function close(): void {
+    keepPendingRename();
     naming = null;
     root.classList.remove('open');
     root.hidden = true;
