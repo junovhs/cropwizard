@@ -13,6 +13,7 @@
 
 import { Spring, Pulse, createLoop, clamp } from './juice.js';
 import { filterFor } from './adjust.js';
+import { resizeFree } from './application/freeform.js';
 import { canvasContext } from './infrastructure/dom.js';
 import type { Adjustment, Framing } from './domain/types.js';
 
@@ -40,12 +41,20 @@ export interface ViewfinderOptions {
   readonly canvas: HTMLCanvasElement;
   readonly stage: HTMLElement;
   readonly onFrameChange?: (framing: Framing) => void;
+  /**
+   * A freeform edit has been released. The crop is final; the caller decides
+   * what output size it now stands for and sets it, which is what sends the
+   * frame home through the ordinary recentre.
+   */
+  readonly onFreeformCommit?: (framing: Framing) => void;
 }
 
 export interface ViewfinderController {
   setImage(image: HTMLImageElement | null, framing?: Framing | null): void;
   setAdjust(adjustment: Adjustment): void;
   setTarget(w: number, h: number): void;
+  /** Unlock the frame's aspect. Everything else about the gesture is unchanged. */
+  setFreeform(on: boolean): void;
   setFit(on: boolean): void;
   isFit(): boolean;
   getFrameScale(): number;
@@ -61,12 +70,17 @@ export interface ViewfinderController {
   hasImage(): boolean;
 }
 
-export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOptions): ViewfinderController {
+export function createViewfinder(
+  { canvas, stage, onFrameChange, onFreeformCommit }: ViewfinderOptions,
+): ViewfinderController {
   const ctx = canvasContext(canvas);
 
   let image: HTMLImageElement | null = null;
   let filter = 'none';
   let aspect = 1;
+  // Freeform only changes what a resize is allowed to do. The frame is still
+  // the thing being manipulated, and release still recentres.
+  let freeform = false;
   let targetW = 1, targetH = 1;
   // DEC-03: the frame is the output at its real size on screen. `fitMode` is the
   // explicit opt-out for close work; `frameScale` is how much of true size the
@@ -543,6 +557,17 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     const zoomMinW = start.w * currentZoom / MAX_ZOOM;
     const minW = Math.max(visualMinW, zoomMinW);
 
+    // With no ratio to honour, every edge is its own answer. The floors are the
+    // same two the preset path enforces — a box you can still grab, and the
+    // shared zoom ceiling — applied to each axis rather than to the pair.
+    if (freeform) {
+      return resizeFree(start, handle, p, {
+        image: im,
+        minW: Math.max(minShort, zoomMinW),
+        minH: Math.max(minShort, start.h * currentZoom / MAX_ZOOM),
+      });
+    }
+
     if (handle.length === 2) {
       const west = handle.includes('w');
       const north = handle.includes('n');
@@ -685,8 +710,14 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
       dragging = null;
       hoverHandle = null;
       canvas.style.cursor = 'default';
-      if (frameEdited) normalizeFrame();
-      else settle();
+      if (frameEdited) {
+        // The crop is settled the instant the pointer lifts. In freeform the
+        // caller turns it into the new output size first, so the frame's way
+        // home is already the right shape; the recentre itself is the same one
+        // every other commit takes, and the source crop is untouched by it.
+        if (freeform && image) onFreeformCommit?.(readFraming());
+        normalizeFrame();
+      } else settle();
       endInteraction();
     }
   }
@@ -799,6 +830,12 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
       morph = image ? readFraming() : null;
       layoutFrame(false);
       loop.kick();
+    },
+    // The ratio lock, and nothing else. The frame stays where it is: whatever
+    // is on screen when the mode changes is a crop the user is looking at, and
+    // moving it under them would be the app taking the composition back.
+    setFreeform(on: boolean): void {
+      freeform = on;
     },
     // The fit toggle. Only the magnification changes: the crop is carried across
     // the morph untouched.

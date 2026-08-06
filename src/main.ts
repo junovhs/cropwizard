@@ -9,6 +9,9 @@ import { createAdjustPanel, neutral } from './adjust.js';
 import { paintIcons } from './icons.js';
 import { createExportPanel, type ExportPanelController } from './presentation/export-panel.js';
 import { acceptFrame, fitFrameToTarget, suggestFrame, targetKey, useWholeImage, wholeFrame } from './application/framing.js';
+import {
+  FREEFORM_LABEL, commitFreeform, enterFreeform, exitFreeform, releaseFreeform,
+} from './application/freeform.js';
 import { decodeImage } from './infrastructure/image-decoder.js';
 import { requiredElement, requiredElements } from './infrastructure/dom.js';
 import { loadPinned, pinId, removePinned } from './pinned.js';
@@ -25,15 +28,49 @@ const fileInput = $<HTMLInputElement>('#file');
 
 let exportPanel: ExportPanelController | null = null;
 
+// Where the app goes back to when Freeform is turned off and there is no preset
+// to restore — the size it booted with, before anything had been chosen.
+const DEFAULT_TARGET: OutputTarget = { ...store.get().target };
+
+const isFreeform = (): boolean => store.get().cropMode === 'freeform';
+
 function announce(message: string): void {
   const el = $('#status');
   el.textContent = '';
   requestAnimationFrame(() => { el.textContent = message; });
 }
 
+// A sentence about something the app did on your behalf. It is not an error and
+// there is nothing to answer, so it says its piece and leaves.
+let noticeTimer: ReturnType<typeof setTimeout> | null = null;
+function showNotice(message: string): void {
+  const el = $('#notice');
+  el.textContent = message;
+  el.hidden = false;
+  requestAnimationFrame(() => el.classList.add('open'));
+  if (noticeTimer !== null) clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => {
+    el.classList.remove('open');
+    noticeTimer = setTimeout(() => { el.hidden = true; }, 220);
+  }, 4_200);
+}
+
 const view = createViewfinder({
   canvas,
   stage,
+  // A freeform crop is finished the moment it is released, and the size it
+  // stands for is its own pixels. Setting that target is what sends the frame
+  // home — the same recentre every other commit uses, with the source crop
+  // stated outright first so the animation cannot move it.
+  onFreeformCommit(framing) {
+    const state = store.transact((current) => commitFreeform(current, framing));
+    if (state.cropMode !== 'freeform') return;
+    view.setTarget(state.target.w, state.target.h);
+    showTarget(state.target);
+    markActivePin();
+    syncFitChrome();
+    syncUI();
+  },
   // The viewfinder owns the live transform; the store owns the decision.
   onFrameChange(framing) {
     const item = activeItem();
@@ -75,6 +112,13 @@ function updateReadout(framing: Framing | null): void {
   const w = Math.round(framing.cropW);
   const h = Math.round(framing.cropH);
   $('#cropSize').textContent = `${w} × ${h}`;
+
+  // In Freeform the output *is* the crop, so the panel that normally names a
+  // chosen size states the pixels being cut instead — live, while they change.
+  if (isFreeform()) {
+    $('#sizeName').textContent = FREEFORM_LABEL;
+    $('#sizeDims').textContent = `${w} × ${h}`;
+  }
 
   // How much real detail is behind each output pixel. Below 1.0 we are
   // enlarging, which is the only thing that actually costs quality here. The
@@ -346,6 +390,14 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
   const files = Array.from(fileList).filter((file) => file.type.startsWith('image/'));
   if (!files.length) { announce('No images in that drop'); return; }
 
+  // A stack is a statement that these images share a destination, which is the
+  // one thing Freeform does not have. The drop is the deliberate act (DEC-04),
+  // so it wins and the preset comes back with it.
+  if (files.length > 1 && isFreeform()) {
+    setFreeform(false);
+    showNotice('Freeform turned off — a stack needs one output size.');
+  }
+
   const decoded = await Promise.allSettled(files.map(decodeImage));
   let items: CropItem[] = [];
   decoded.forEach((result, index) => {
@@ -358,13 +410,15 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
   // answer to that question: its own pixels, nothing cut. Guessing a square
   // meant every unasked-for arrival was cropped before it was even looked at.
   // The size stays provisional, so choosing a real one is still one click away.
-  if (!sizeChosen) adoptImageSize(items[0]);
+  const first = items[0];
+  if (isFreeform() && first) applyFreeformSize(first.image.naturalWidth, first.image.naturalHeight);
+  else if (!sizeChosen) adoptImageSize(items[0]);
 
   const s = store.get();
   items = items.map((item) => suggestFrame(item, s.target));
   // The lead image is the one the target was taken from, so it is the whole
   // rectangle exactly — said outright rather than rounded to by the autoframer.
-  if (!sizeChosen) {
+  if (!sizeChosen || isFreeform()) {
     const lead = items[0];
     if (lead) items[0] = { ...lead, frame: wholeFrame(lead), framedFor: targetKey(s.target) };
   }
@@ -621,16 +675,13 @@ function markActivePin(): void {
   }
 }
 
-function applyTarget({ w, h, name }: TargetSelection): void {
-  if (!(w > 0 && h > 0)) return;
-  store.transact((current) => {
-    const target = { w, h, label: name };
-    return { ...current, target, items: current.items.map((item) => fitFrameToTarget(item, target)) };
-  });
-  view.setTarget(w, h);
+// Everything the screen owes a new output size. The store move differs by route
+// — a preset refits every crop, Freeform states one outright — but what has to
+// be redrawn afterwards is the same either way.
+function showAppliedTarget(target: OutputTarget): void {
+  view.setTarget(target.w, target.h);
   syncFitChrome();
-
-  showTarget({ w, h, label: name });
+  showTarget(target);
   markActivePin();
 
   // Every queued crop follows the new shape immediately, so the filmstrip is
@@ -641,7 +692,69 @@ function applyTarget({ w, h, name }: TargetSelection): void {
     updateReadout(view.getFraming());
   }
   syncUI();
+}
+
+function applyTarget({ w, h, name }: TargetSelection): void {
+  if (!(w > 0 && h > 0)) return;
+  const state = store.transact((current) => {
+    const target = { w, h, label: name };
+    // Naming a size is the plainest possible way of saying the crop has a
+    // destination again, so it is also how you leave Freeform.
+    const base = releaseFreeform(current);
+    return { ...base, target, items: base.items.map((item) => fitFrameToTarget(item, target)) };
+  });
+  view.setFreeform(false);
+  showAppliedTarget(state.target);
+  syncFreeformChrome();
   announce(`${name}, ${w} by ${h} pixels`);
+}
+
+// ---- freeform --------------------------------------------------------------
+
+// The preset above is suspended rather than unavailable, and Batch has no
+// shared output size to work from, so both say what is true of them right now.
+function syncFreeformChrome(): void {
+  const on = isFreeform();
+  $('#freeform').setAttribute('aria-pressed', String(on));
+  $('#sizeButton').classList.toggle('is-suspended', on);
+
+  const batch = $('#enableBatch');
+  batch.setAttribute('aria-disabled', String(on));
+  batch.title = on ? 'Choose an output size to use Batch.' : '';
+  syncSizeConfidence();
+}
+
+function setFreeform(on: boolean): void {
+  if (isFreeform() === on) return;
+
+  if (on) {
+    const before = store.get();
+    const framing = view.hasImage() ? view.getFraming() : null;
+    const state = store.transact((current) => enterFreeform(current, framing));
+    view.setFreeform(true);
+    showAppliedTarget(state.target);
+    syncBatchChrome();
+    syncFreeformChrome();
+    // Freeform is one image's answer, so it cannot also be a batch's (DEC-04
+    // keeps the switch honest in both directions). Nothing is unloaded — the
+    // queue is still there when a size is chosen again.
+    if (before.batch) showNotice('Batch turned off — Freeform applies to one image.');
+    announce('Freeform crop enabled. Aspect ratio unlocked');
+    return;
+  }
+
+  const state = store.transact((current) => exitFreeform(current, DEFAULT_TARGET));
+  view.setFreeform(false);
+  showAppliedTarget(state.target);
+  syncFreeformChrome();
+  announce(`Freeform crop disabled. Restored ${state.target.w} by ${state.target.h} preset`);
+}
+
+// A picture arriving in Freeform has no size to inherit — the last crop's pixel
+// count is a fact about a different image — so it starts as the whole of itself.
+function applyFreeformSize(w: number, h: number): void {
+  const state = store.set({ target: { w, h, label: FREEFORM_LABEL } });
+  showAppliedTarget(state.target);
 }
 
 // Until a size has actually been chosen the panel is only showing a default.
@@ -650,13 +763,19 @@ function applyTarget({ w, h, name }: TargetSelection): void {
 let sizeChosen = false;
 
 function syncSizeConfidence(): void {
-  $('#sizeButton').classList.toggle('is-provisional', !sizeChosen);
-  $('#sizeNote').classList.toggle('is-unsettled', !sizeChosen);
-  $('#sizeNote').textContent = sizeChosen
-    ? 'Search by name, pixels or shape.'
-    : hasImage
-      ? 'Your image’s own size, nothing cropped. Click above to crop it to something else.'
-      : 'Just a suggestion — click above to set the size you need.';
+  // In Freeform the size is not unsettled, it is superseded — and the way out
+  // is the control itself, so that is what the line says.
+  const freeform = isFreeform();
+  const unsettled = !sizeChosen && !freeform;
+  $('#sizeButton').classList.toggle('is-provisional', unsettled);
+  $('#sizeNote').classList.toggle('is-unsettled', unsettled);
+  $('#sizeNote').textContent = freeform
+    ? 'Choose an output size to exit Freeform.'
+    : sizeChosen
+      ? 'Search by name, pixels or shape.'
+      : hasImage
+        ? 'Your image’s own size, nothing cropped. Click above to crop it to something else.'
+        : 'Just a suggestion — click above to set the size you need.';
 }
 
 createSizePicker({
@@ -672,6 +791,12 @@ createSizePicker({
     return item ? { w: item.image.naturalWidth, h: item.image.naturalHeight } : null;
   },
   onPinsChange: renderPins,
+  // Clicking a suspended preset is one act, not two: it means "I want a size
+  // again", so Freeform ends and the list opens on the same click. The preset
+  // that was suspended comes back with it, so dismissing without choosing
+  // leaves you exactly where the click implied — out of Freeform, on the size
+  // you had before it.
+  onBeforeOpen: () => { if (isFreeform()) setFreeform(false); },
   onPick: (r: SizeResult) => {
     sizeChosen = true;
     applyTarget({ w: r.w, h: r.h, name: r.name });
@@ -714,6 +839,10 @@ exportPanel = createExportPanel({
 function showState(state: AppState): void {
   showTarget(state.target);
   view.setTarget(state.target.w, state.target.h);
+  // The mode is part of the state being restored, so the lock, the button and
+  // the suspended preset all come back with it rather than being left behind.
+  view.setFreeform(state.cropMode === 'freeform');
+  syncFreeformChrome();
 
   const item = state.items[state.activeIndex] ?? null;
   if (item) {
@@ -846,7 +975,18 @@ new ResizeObserver(() => { view.resize(); syncFitChrome(); }).observe(stage);
 for (const option of $$<HTMLButtonElement>('#viewMode [role="radio"]')) {
   option.addEventListener('click', () => setViewMode(option.dataset.fit === 'true'));
 }
-$('#enableBatch').addEventListener('click', () => setBatch(!store.get().batch));
+// Batch is not disabled while Freeform is on — it is focusable, clickable, and
+// answers with the reason instead of the mode change. A control that does
+// nothing at all teaches nothing at all.
+$('#enableBatch').addEventListener('click', () => {
+  if (isFreeform()) {
+    showNotice('Choose an output size to use Batch.');
+    announce('Batch is unavailable in Freeform. Choose an output size to use Batch');
+    return;
+  }
+  setBatch(!store.get().batch);
+});
+$('#freeform').addEventListener('click', () => setFreeform(!isFreeform()));
 // The button and the Enter key are the same act, so they call the same thing.
 $('#finalize').addEventListener('click', approve);
 $('#coachGo').addEventListener('click', closeCoach);
@@ -862,6 +1002,7 @@ paintIcons();
 renderPins();
 setChromeVisible(false);
 syncBatchChrome();
+syncFreeformChrome();
 syncUI();
 const boot = store.get().target;
 applyTarget({ w: boot.w, h: boot.h, name: boot.label });

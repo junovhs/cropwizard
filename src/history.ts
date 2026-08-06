@@ -35,7 +35,8 @@ export interface History {
 
 /** Everything that makes a state an *edit* rather than a change of selection. */
 function isEdit(a: AppState, b: AppState): boolean {
-  return a.items !== b.items || a.target !== b.target || a.batch !== b.batch;
+  return a.items !== b.items || a.target !== b.target || a.batch !== b.batch
+    || a.cropMode !== b.cropMode;
 }
 
 export function createHistory(options: HistoryOptions): History {

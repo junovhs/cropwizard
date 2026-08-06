@@ -29,11 +29,23 @@ export interface CropItem {
   readonly framedFor: string | null;
 }
 
+/**
+ * Which contract the crop is being made against. `preset` is the output-first
+ * workflow — a chosen size the crop must satisfy. `freeform` is a temporary
+ * override where the crop's own pixels are the output, so the ratio is unlocked.
+ * Stated outright rather than inferred from a missing size: "no target" and
+ * "the target is whatever I cut" are different facts.
+ */
+export type CropMode = 'preset' | 'freeform';
+
 export interface AppState {
   readonly target: OutputTarget;
   readonly items: readonly CropItem[];
   readonly activeIndex: number;
   readonly batch: boolean;
+  readonly cropMode: CropMode;
+  /** The preset suspended by Freeform, kept so turning it off restores it. */
+  readonly previousTarget: OutputTarget | null;
 }
 
 export interface SavedSize extends Dimensions {

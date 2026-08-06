@@ -20,6 +20,12 @@ export interface SizePickerOptions {
   readonly trigger: HTMLButtonElement;
   readonly getTemplate?: () => Dimensions | null;
   readonly onPick: (result: SizeResult) => void;
+  /**
+   * Runs before the list appears, whatever opened it. Asking for a size is
+   * already a statement about the mode you are in, so a caller can settle that
+   * here and keep it to the one click the user actually made.
+   */
+  readonly onBeforeOpen?: () => void;
   /** Fires whenever a row is pinned or unpinned, so the top bar can redraw. */
   readonly onPinsChange?: (pins: readonly PinnedSize[]) => void;
 }
@@ -94,7 +100,7 @@ function rowAction(
 }
 
 export function createSizePicker(options: SizePickerOptions): SizePickerController {
-  const { root, input, list, trigger, getTemplate, onPick, onPinsChange } = options;
+  const { root, input, list, trigger, getTemplate, onPick, onPinsChange, onBeforeOpen } = options;
   let rows: SizeResult[] = [];
   let cursor = 0;
   let recents = loadRecents();
@@ -313,6 +319,7 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
   }
 
   function open(): void {
+    onBeforeOpen?.();
     root.hidden = false;
     naming = null;
     saved = loadSaved();

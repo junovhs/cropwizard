@@ -231,6 +231,16 @@
       </button>
       <p id="sizeNote" class="note">Search by name, pixels or shape.</p>
 
+      <!-- The other kind of crop: the one where the destination has not been
+           decided yet. It overrides the size above rather than replacing it, so
+           it is a pressed state on a button and not a size of its own. -->
+      <button id="freeform" class="secondary freeform-button" type="button" aria-pressed="false"
+        title="Crop without a locked aspect ratio"
+        aria-description="Crop without a locked aspect ratio">
+        <span class="freeform-check" aria-hidden="true">✓</span>
+        <span>Freeform</span>
+      </button>
+
       <div class="scale-row">
         <span id="scaleLabel" class="field-label">Quick export</span>
         <div id="scaleGroup" class="segmented" role="radiogroup" aria-labelledby="scaleLabel">
@@ -322,6 +332,11 @@
     <p class="coach-out">Changed your mind? Turn Batch off in the sidebar.</p>
   </div>
 </div>
+
+<!-- Something the app did on your behalf, said once and then gone. The live
+     region below is what actually announces it; this is the same sentence for
+     the people reading rather than listening. -->
+<div id="notice" class="notice" aria-hidden="true" hidden></div>
 
 <div id="status" class="sr-only" role="status" aria-live="polite"></div>
 <script type="module" src="src/main.js"></script>

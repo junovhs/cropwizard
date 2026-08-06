@@ -29,6 +29,7 @@ function freezeState(state: AppState): AppState {
   return Object.freeze({
     ...state,
     target: Object.freeze({ ...state.target }),
+    previousTarget: state.previousTarget ? Object.freeze({ ...state.previousTarget }) : null,
     items: Object.freeze(state.items.map(freezeItem)),
   });
 }
@@ -99,6 +100,8 @@ export const store = createAppStore({
   items: [],
   activeIndex: -1,
   batch: false,
+  cropMode: 'preset',
+  previousTarget: null,
 });
 
 export const activeItem = (state: AppState = store.get()): CropItem | null =>

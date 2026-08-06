@@ -5,6 +5,7 @@ import {
   exportAll,
   scaledTarget,
 } from '../export.js';
+import { exportItems } from '../application/freeform.js';
 import { requiredElement, requiredElements } from '../infrastructure/dom.js';
 import type {
   AppState,
@@ -67,7 +68,11 @@ export function createExportPanel({
   }
 
   function refreshExport(): void {
-    const { items, target, activeIndex } = getState();
+    const state = getState();
+    const { target, activeIndex } = state;
+    // Freeform describes one rectangle of one image, so that is what would be
+    // written even when a queue is still loaded behind it.
+    const items = exportItems(state);
     const count = items.length;
     exportButton.disabled = !count || exporting;
     exportLabel.textContent = exporting
@@ -181,7 +186,9 @@ export function createExportPanel({
   });
 
   exportButton.addEventListener('click', async () => {
-    const { items, target } = getState();
+    const state = getState();
+    const { target } = state;
+    const items = exportItems(state);
     if (!items.length || exporting) return;
     exporting = true;
     exportButton.classList.remove('is-done');
