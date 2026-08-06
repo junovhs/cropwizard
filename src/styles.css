@@ -537,12 +537,16 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
    Doubled up on .segmented deliberately: the base rule's three equal columns are
    declared further down this file, and at equal specificity that one would win
    and leave a third, empty column hanging off the right. */
+/* Flex rather than the base control's fixed columns: an option that would do
+   nothing on this crop is taken out of the row entirely, and a grid would keep
+   its column and leave a gap where the answer used to be. */
 .segmented.stage-segmented {
-  grid-template-columns: auto auto;
+  display: flex;
   background: oklch(1 0 0 / 0.88);
   box-shadow: var(--shadow-small);
   backdrop-filter: blur(8px);
 }
+.stage-segmented button[hidden] { display: none; }
 .stage-segmented[hidden] { display: none; }
 .stage-segmented button { padding: 0 12px; white-space: nowrap; }
 

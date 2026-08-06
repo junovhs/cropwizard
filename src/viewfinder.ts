@@ -14,6 +14,7 @@
 import { Spring, Pulse, createLoop, clamp } from './juice.js';
 import { filterFor } from './adjust.js';
 import { resizeFree } from './application/freeform.js';
+import { frameFit, type FrameView } from './application/frame-view.js';
 import { canvasContext } from './infrastructure/dom.js';
 import type { Adjustment, Framing } from './domain/types.js';
 
@@ -32,6 +33,8 @@ const SNAP_PX = 7;            // magnetic pull toward a centred framing
 const MIN_FRAME_PX = 44;       // smallest useful crop box on screen
 const CORNER_HIT = 18;         // forgiving pointer target around corner handles
 const EDGE_HIT = 12;           // forgiving pointer target around edge handles
+
+export type { FrameView };
 
 interface Point { readonly x: number; readonly y: number; }
 interface FrameRect { readonly x: number; readonly y: number; readonly w: number; readonly h: number; }
@@ -62,10 +65,12 @@ export interface ViewfinderController {
   setTarget(w: number, h: number): void;
   /** Unlock the frame's aspect. Everything else about the gesture is unchanged. */
   setFreeform(on: boolean): void;
-  setFit(on: boolean): void;
-  isFit(): boolean;
+  setFrameView(view: FrameView): void;
+  getFrameView(): FrameView;
   getFrameScale(): number;
   canEnlarge(): boolean;
+  /** Whether standing back would actually show you anything different. */
+  canShrink(): boolean;
   getZoom(): number;
   getMaxZoom(): number;
   getMinZoom(): number;
@@ -90,14 +95,16 @@ export function createViewfinder(
   // the thing being manipulated, and release still recentres.
   let freeform = false;
   let targetW = 1, targetH = 1;
-  // DEC-03: the frame is the output at its real size on screen. `fitMode` is the
-  // explicit opt-out for close work; `frameScale` is how much of true size the
-  // frame is actually showing (below 1 means the stage forced a cap).
-  let fitMode = false;
+  // DEC-03: the frame is the output at its real size on screen. `frameView` is
+  // the explicit opt-out — closer for detail, further back for composition;
+  // `frameScale` is how much of true size the frame is actually showing (below 1
+  // means the stage forced a cap, or you asked to stand back).
+  let frameView: FrameView = 'true';
   let frameScale = 1;
-  // Whether enlarging has anywhere to go: false once the stage is the limit in
-  // both views, which is when offering the choice is offering nothing.
+  // Whether either opt-out has anywhere to go. Once the stage is the limit,
+  // enlarging offers nothing; once the frame is already small, so does shrinking.
   let enlargeable = false;
+  let shrinkable = false;
   // The framing to hold on to while the frame itself is changing shape or size.
   let morph: Framing | null = null;
   let vw = 1, vh = 1, dpr = 1;
@@ -163,9 +170,10 @@ export function createViewfinder(
   function canonicalFrame(): FrameRect {
     const roomW = Math.max(40, vw - FRAME_PAD * 2);
     const roomH = Math.max(40, vh - FRAME_PAD * 2);
-    const fits = Math.min(roomW / targetW, roomH / targetH);
-    frameScale = fitMode ? fits : Math.min(1, fits);
-    enlargeable = fits > 1.005;
+    const fit = frameFit(frameView, Math.min(roomW / targetW, roomH / targetH), Math.max(targetW, targetH));
+    frameScale = fit.scale;
+    enlargeable = fit.enlargeable;
+    shrinkable = fit.shrinkable;
     const w = Math.max(8, targetW * frameScale);
     const h = Math.max(8, targetH * frameScale);
     return { x: (vw - w) / 2, y: (vh - h) / 2, w, h };
@@ -847,19 +855,22 @@ export function createViewfinder(
     setFreeform(on: boolean): void {
       freeform = on;
     },
-    // The fit toggle. Only the magnification changes: the crop is carried across
-    // the morph untouched.
-    setFit(on: boolean): void {
-      if (fitMode === on) return;
-      fitMode = on;
+    // How large to draw the frame. Only the magnification changes: the crop is
+    // carried across the morph untouched, so standing back and leaning in are
+    // statements about the view and never about the file.
+    setFrameView(next: FrameView): void {
+      if (frameView === next) return;
+      frameView = next;
       morph = image ? readFraming() : null;
       layoutFrame(false);
       loop.kick();
     },
-    isFit: () => fitMode,
-    // 1 while the frame is at true size; below 1 once the stage has capped it.
+    getFrameView: () => frameView,
+    // 1 while the frame is at true size; below 1 once the stage has capped it
+    // — or once you have asked to stand back from it.
     getFrameScale: () => frameScale,
     canEnlarge: () => enlargeable,
+    canShrink: () => shrinkable,
     // Zoom is stated against the smallest scale that still fills the frame, so
     // 100% is "the whole picture, nothing wasted" and every larger number is how
     // far in you have gone. That is the only reading the frame can support: the

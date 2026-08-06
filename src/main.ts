@@ -1,7 +1,7 @@
 // Wiring: intake, the viewfinder, the readouts, and the keyboard.
 
 import { store, createItem, activeItem } from './state.js';
-import { createViewfinder } from './viewfinder.js';
+import { createViewfinder, type FrameView } from './viewfinder.js';
 import { createSizePicker } from './sizepicker.js';
 import { createFilmstrip } from './filmstrip.js';
 import { scaledTarget } from './export.js';
@@ -282,38 +282,56 @@ function showAdjust(item: CropItem): void {
   view.setAdjust(adjustPanel.load(item.adjust || neutral()));
 }
 
-// ---- true size vs fit ------------------------------------------------------
+// ---- how large the frame is drawn ------------------------------------------
 
-// The frame is the output at its real size (DEC-03). Two things need saying:
-// which of the two views you are in, and — whenever what you are looking at is
-// not the real thing — how far off it is.
+// The frame is the output at its real size (DEC-03), and the other two views
+// are departures from it: closer for detail, further back for composition.
+// Two things need saying: which of them you are in, and — whenever what you are
+// looking at is not the real thing — how far off it is.
 function syncFitChrome(): void {
-  const fit = view.isFit();
+  // An option that would show the same picture is not an option. A crop bigger
+  // than the stage is already capped, so enlarging offers nothing; a frame
+  // already down at the floor cannot usefully shrink. Each one leaves the row
+  // rather than sitting in it doing nothing, and when neither is on offer the
+  // question itself goes away.
+  const canEnlarge = view.canEnlarge();
+  const canShrink = view.canShrink();
+
+  // A view can also stop being available underneath you — a new output size, a
+  // resized stage — and leaving you standing in one that no longer exists would
+  // light nothing in the control. True size is always there, so it is the way
+  // back.
+  let current = view.getFrameView();
+  if ((current === 'fit' && !canEnlarge) || (current === 'small' && !canShrink)) {
+    view.setFrameView('true');
+    current = 'true';
+  }
   const percent = Math.round(view.getFrameScale() * 100);
-  // A crop bigger than the stage is capped either way, so the two views are the
-  // same picture and the control is a choice between one thing. It goes away
-  // rather than sitting there doing nothing.
-  $('#viewMode').hidden = !hasImage || mode !== 'crop' || !view.canEnlarge();
+  $('#viewMode').hidden = !hasImage || mode !== 'crop' || (!canEnlarge && !canShrink);
   for (const option of $$<HTMLButtonElement>('#viewMode [role="radio"]')) {
-    option.setAttribute('aria-checked', String((option.dataset.fit === 'true') === fit));
+    const value = option.dataset.view ?? 'true';
+    option.setAttribute('aria-checked', String(value === current));
+    option.hidden = value === 'fit' ? !canEnlarge : value === 'small' ? !canShrink : false;
   }
 
   // True size is a claim about the screen, so it has to be withdrawn when the
-  // stage is too small to honour it — that is the one case where the mode you
+  // stage is too small to honour it — that is the one case where the view you
   // picked and the thing you are seeing are not the same.
-  const capped = !fit && percent < 100;
+  const capped = current === 'true' && percent < 100;
   const chip = $('#scaleChip');
-  chip.hidden = !fit && !capped;
+  chip.hidden = current === 'true' && !capped;
   chip.classList.toggle('warn', capped);
   // Enlarging only has somewhere to go while the crop is smaller than the
   // stage; past that the stage is the limit in both views and they show the
   // same picture, which is worth saying rather than leaving you to click back
   // and forth looking for the difference.
-  chip.textContent = fit
+  chip.textContent = current === 'fit'
     ? percent > 100
       ? `Enlarged — ${percent}% of true size`
       : `As large as the stage allows — ${percent}% of true size`
-    : capped ? `Too big for the stage — shown at ${percent}% of true size` : '';
+    : current === 'small'
+      ? `Standing back — ${percent}% of true size`
+      : capped ? `Too big for the stage — shown at ${percent}% of true size` : '';
 }
 
 // ---- zoom ------------------------------------------------------------------
@@ -373,18 +391,32 @@ zoomField.addEventListener('keydown', (e) => {
 $('#zoomIn').addEventListener('click', () => view.zoomBy(1.1));
 $('#zoomOut').addEventListener('click', () => view.zoomBy(1 / 1.1));
 
+const VIEW_NAMES: Readonly<Record<FrameView, string>> = {
+  small: 'Standing back',
+  true: 'True size',
+  fit: 'Enlarged for editing',
+};
+
 // Picking a view is not the same act as flipping between them: the radio says
 // which one it wants and asking for the one you are in is nothing at all.
-function setViewMode(fit: boolean): void {
-  if (view.isFit() === fit) return;
-  view.setFit(fit);
+function setViewMode(next: FrameView): void {
+  if (view.getFrameView() === next) return;
+  view.setFrameView(next);
   syncFitChrome();
-  announce(fit ? 'Enlarged for editing' : 'True size');
+  announce(VIEW_NAMES[next]);
 }
 
-// The f key is a flip, because a key has no side to press.
-function toggleFit(): void {
-  setViewMode(!view.isFit());
+// The f key is a cycle, because a key has no side to press — and with three
+// views there is no side to press toward either. Views that would show the same
+// picture are stepped over rather than landed on, so the key never appears to
+// do nothing.
+function cycleView(): void {
+  const order: readonly FrameView[] = ['small', 'true', 'fit'];
+  const available = order.filter((v) =>
+    v === 'true' || (v === 'fit' ? view.canEnlarge() : view.canShrink()));
+  const at = available.indexOf(view.getFrameView());
+  const next = available[(at + 1) % available.length];
+  if (next) setViewMode(next);
 }
 
 // ---- intake ----------------------------------------------------------------
@@ -958,8 +990,8 @@ document.addEventListener('keydown', (e) => {
     ArrowUp: () => view.nudge(0, px),
     ArrowDown: () => view.nudge(0, -px),
     '0': () => view.fill(),
-    f: toggleFit,
-    F: toggleFit,
+    f: cycleView,
+    F: cycleView,
     '=': () => view.zoomBy(1.1),
     '+': () => view.zoomBy(1.1),
     '-': () => view.zoomBy(1 / 1.1),
@@ -981,7 +1013,7 @@ document.addEventListener('keydown', (e) => {
 new ResizeObserver(() => { view.resize(); syncFitChrome(); }).observe(stage);
 
 for (const option of $$<HTMLButtonElement>('#viewMode [role="radio"]')) {
-  option.addEventListener('click', () => setViewMode(option.dataset.fit === 'true'));
+  option.addEventListener('click', () => setViewMode((option.dataset.view ?? 'true') as FrameView));
 }
 // Batch is not disabled while Freeform is on — it is focusable, clickable, and
 // answers with the reason instead of the mode change. A control that does

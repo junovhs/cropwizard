@@ -158,14 +158,18 @@
           <span class="freeform-check" aria-hidden="true">✓</span>
           <span>Freeform</span>
         </button>
-        <!-- Two ways to look at the same crop, both on screen at once. A single
+        <!-- Three ways to look at the same crop, all on screen at once. A single
              button had to be labelled with one of them, and whichever it named
              read as the state you were in about as often as the one you would
-             switch to. -->
+             switch to. None of these touches the crop or the zoom — they change
+             how much of the screen the output rectangle takes up while you
+             decide, and an option that would show you nothing new is dropped
+             from the row rather than sitting there doing nothing. -->
         <div id="viewMode" class="segmented stage-segmented" role="radiogroup"
           aria-label="How the frame is shown" hidden>
-          <button type="button" role="radio" data-fit="false" aria-checked="true">True size</button>
-          <button type="button" role="radio" data-fit="true" aria-checked="false">Enlarged for editing</button>
+          <button type="button" role="radio" data-view="small" aria-checked="false" hidden>Smaller</button>
+          <button type="button" role="radio" data-view="true" aria-checked="true">True size</button>
+          <button type="button" role="radio" data-view="fit" aria-checked="false" hidden>Enlarged for editing</button>
         </div>
       </div>
 

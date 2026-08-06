@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { frameFit } from '../dist/src/application/frame-view.js';
 import { tickFromZoom, zoomFromTick } from '../dist/src/application/zoom.js';
 import {
   FREEFORM_LABEL,
@@ -206,6 +207,42 @@ test('the zoom slider runs from covering the frame to eight times it', () => {
     const round = zoomFromTick(tickFromZoom(zoom, TICKS, range), TICKS, range);
     assert.ok(Math.abs(round - zoom) / zoom < 0.005, `${zoom} survives the round trip`);
   }
+});
+
+test('the three views change the frame’s size on screen and nothing else', () => {
+  // A 600px output on a stage with room for twice that: true size is true size,
+  // enlarging fills the stage, standing back halves it.
+  const roomy = 2;
+  assert.equal(frameFit('true', roomy, 600).scale, 1);
+  assert.equal(frameFit('fit', roomy, 600).scale, 2);
+  assert.equal(frameFit('small', roomy, 600).scale, 0.5);
+
+  // Standing back is measured from what you would otherwise see, so a frame the
+  // stage has already capped shrinks from the capped size, not from 100%.
+  const capped = frameFit('small', 0.4, 4000);
+  assert.ok(Math.abs(capped.scale - 0.2) < 1e-12);
+  assert.equal(frameFit('true', 0.4, 4000).scale, 0.4);
+});
+
+test('a view that would show the same picture is not offered', () => {
+  // Room to spare: both departures say something.
+  const roomy = frameFit('true', 2, 600);
+  assert.equal(roomy.enlargeable, true);
+  assert.equal(roomy.shrinkable, true);
+
+  // Already capped by the stage: enlarging is the picture you are looking at.
+  assert.equal(frameFit('true', 0.4, 4000).enlargeable, false);
+
+  // A small output has nowhere to stand back to — halving 90px leaves corners
+  // nobody can grab, so the floor holds it at true size and the option goes.
+  const tiny = frameFit('small', 3, 90);
+  assert.equal(tiny.shrinkable, false);
+  assert.equal(tiny.scale, 1, 'and asking for it changes nothing');
+
+  // Just past the floor, it starts to mean something again.
+  const past = frameFit('small', 3, 320);
+  assert.equal(past.shrinkable, true);
+  assert.ok(past.scale > 0.4 && past.scale < 1);
 });
 
 test('the freeform target is the crop, rounded to whole pixels', () => {
