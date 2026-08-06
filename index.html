@@ -88,7 +88,9 @@
         <span class="icon" data-icon="crop"></span>
         <span id="sizeChipDims">1080 × 1080</span>
       </button>
-      <button id="add" class="secondary" type="button" aria-label="Add images"><span class="icon" data-icon="upload"></span><span class="add-word">Add images</span></button>
+      <!-- An up-arrow-out-of-a-tray is the universal mark for *export*, which is
+           the one thing this button does not do. Pictures come in here. -->
+      <button id="add" class="secondary" type="button" aria-label="Add images"><span class="icon" data-icon="image"></span><span class="add-word">Add images</span></button>
     </div>
   </header>
 
@@ -132,7 +134,9 @@
           <div class="adjust-head">
             <span class="icon adjust-mark" data-icon="sliders"></span>
             <h2>Adjust</h2>
-            <button id="adjustReset" class="ghost adjust-reset" type="button" hidden>Reset all</button>
+            <!-- Moved into the channel row by the panel itself, so it keeps a
+                 place in the layout whether or not there is anything to undo. -->
+            <button id="adjustReset" class="ghost adjust-reset" type="button" disabled>Reset all</button>
           </div>
           <div id="adjustRows" class="adjust-rows"></div>
           <p class="adjust-keep">Your crop is untouched while you are in here.</p>
@@ -253,7 +257,13 @@
           <div id="progressBar"></div>
         </div>
         <span id="progressText" class="strip-count">0 / 0 framed</span>
-        <button id="approveAll" class="ghost" type="button"><span class="icon" data-icon="check"></span>Frame the rest</button>
+        <button id="approveAll" class="ghost" type="button"><span class="icon" data-icon="check"></span><span class="approve-all-word">Frame the rest</span></button>
+        <!-- The beat, where the queue already is. On a phone the floating bar
+             over the picture was a row of its own on top of four others; here
+             it shares the line that was already counting the work. -->
+        <button id="finalizeSmall" class="primary finalize-small" type="button">
+          <span class="icon" data-icon="check"></span><span>Keep</span>
+        </button>
       </div>
       <div class="strip-body">
         <div id="stripRail" class="strip-rail"></div>
@@ -266,13 +276,15 @@
 
   <!-- ---- right rail: what comes out ---- -->
   <aside class="panel" aria-label="Options">
-    <!-- A grip alone reads as "drag me", and this sheet cannot be dragged. It
-         is a real, labelled target that closes on a tap, with the word on it. -->
-    <label class="sheet-close" for="panelToggle" aria-label="Close options">
-      <span class="sheet-grip" aria-hidden="true"></span>
-      <span class="sheet-done">Done</span>
+    <!-- A grip reads as "drag me" and this cannot be dragged; a full screen with
+         no way out reads as a trap. One plain back button, where every other
+         back button on the phone is. -->
+    <label class="sheet-close" for="panelToggle" aria-label="Back">
+      <span class="icon" data-icon="chevron-left" aria-hidden="true"></span>
+      <span>Back</span>
     </label>
 
+    <div class="panel-body">
     <section class="block">
       <h2>Output size</h2>
       <button id="sizeButton" class="size-button" type="button" aria-haspopup="dialog">
@@ -326,6 +338,8 @@
         <p class="note">Tokens: <code>{name}</code> <code>{n}</code> <code>{w}</code> <code>{h}</code> <code>{label}</code> <code>{date}</code></p>
       </details>
     </section>
+
+    </div>
 
     <section class="block block-export">
       <button id="export" class="primary export-button" type="button" disabled>

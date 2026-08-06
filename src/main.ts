@@ -170,6 +170,10 @@ function syncStageChrome(): void {
   // quiet instead of disappearing: an empty rail reads as a broken rail.
   $<HTMLButtonElement>('#modeCrop').disabled = !hasImage;
   $<HTMLButtonElement>('#modeAdjust').disabled = !hasImage;
+  // An empty stage already carries a large, obvious way to choose images. A
+  // second one in the corner is not a second chance, it is a second guess about
+  // which is the real one — so it waits until there is something to add to.
+  $('#add').hidden = !hasImage;
   $('#adjust').hidden = !hasImage || cropping;
   // The crop readouts describe a framing decision, so they are only true while
   // that is the decision being made.
@@ -209,6 +213,8 @@ function syncFramingChrome(): void {
   const owed = !item.approved;
 
   $<HTMLButtonElement>('#finalize').hidden = !owed;
+  // The narrow layout's copy of the same beat, living in the queue's own row.
+  $<HTMLButtonElement>('#finalizeSmall').hidden = !owed;
   $('#framingStep').textContent = owed
     ? `Image ${state.activeIndex + 1} of ${total}${done ? ` · ${done} framed` : ''}`
     : done === total
@@ -492,7 +498,20 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
   store.set({ items: [...s.items, ...items] });
   activate(s.activeIndex < 0 ? firstNew : s.activeIndex);
   announce(`${items.length} image${items.length === 1 ? '' : 's'} added`);
+
+  // Batch was entered on purpose and the pictures have just arrived, so the one
+  // question left is the size they all have to come out at — asked now, by
+  // opening the picker, rather than left as a sentence to be found later.
+  if (awaitingBatchSize) {
+    awaitingBatchSize = false;
+    sizePicker.open();
+  }
 }
+
+// Set while a deliberate entry into Batch is waiting for its images: the flow is
+// pick the stack, then the size, then frame — one question at a time, each one
+// asked by the thing that answers it.
+let awaitingBatchSize = false;
 
 // Batch is a mode, so it is one switch that works in both directions (DEC-04).
 // Turning it off is not a way to lose work by accident: the image you are
@@ -505,6 +524,16 @@ function setBatch(on: boolean): void {
     store.set({ batch: true });
     syncBatchChrome();
     syncUI();
+    // Turning Batch on with nothing loaded is a statement about images you have
+    // not chosen yet, so it asks for them instead of explaining itself to an
+    // empty stage. The card that used to stand here said what the mode does;
+    // opening the picker shows it, and the size question follows the pictures.
+    if (!state.items.length) {
+      awaitingBatchSize = true;
+      announce('Batch on. Choose the images to frame');
+      openPicker();
+      return;
+    }
     announce('Batch on. Drop as many images as you like');
     return;
   }
@@ -593,11 +622,21 @@ const strip = createFilmstrip({
   onAdd: () => openPicker(),
 });
 
+// Keeping a crop is the beat of the whole batch, and it happens on the picture
+// rather than in a sentence somewhere: the frame flashes the app's one accent
+// and the thumbnail lights up as the next image arrives.
+function flashKept(): void {
+  stage.classList.remove('just-kept');
+  void stage.offsetWidth;
+  stage.classList.add('just-kept');
+}
+
 function approve(): void {
   const item = activeItem();
   if (!item) return;
   store.updateItem(item.id, (current) => (acceptFrame(current)));
   syncUI();
+  flashKept();
   strip.celebrate(store.get());
 
   const s = store.get();
@@ -1035,8 +1074,9 @@ $('#sizeChip').addEventListener('click', () => sizePicker.open());
 // is not one. In Freeform the crop's size *is* the output size, so tapping it
 // asks the only question it could be asking: make this an exact size instead.
 $('#cropChip').addEventListener('click', () => { if (isFreeform()) sizePicker.open(); });
-// The button and the Enter key are the same act, so they call the same thing.
+// The button, its narrow-layout twin and the Enter key are one act.
 $('#finalize').addEventListener('click', approve);
+$('#finalizeSmall').addEventListener('click', approve);
 $('#coachGo').addEventListener('click', closeCoach);
 $('#coach').addEventListener('mousedown', (event) => {
   if (event.target === $('#coach')) closeCoach();

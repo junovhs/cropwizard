@@ -433,6 +433,23 @@ button.ghost:hover:not(:disabled) { background: oklch(0.55 0.02 70 / 0.07); colo
 }
 canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
+/* Keeping a crop, said on the picture rather than in a sentence: the stage
+   takes the app's one accent for a moment and lets it go. */
+.stage.just-kept::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 3px var(--accent);
+  animation: kept .5s var(--ease) forwards;
+}
+@keyframes kept {
+  0% { opacity: 0; }
+  22% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* ---- stage overlays ---- */
 
 /* The stage's bottom row. Both halves live in one flex line, so the zoom
@@ -705,7 +722,14 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
 .adjust-head { display: flex; align-items: center; gap: 9px; }
 .adjust-reset { margin-left: auto; min-height: 26px; padding: 0 8px; font-size: 11.5px; }
-.adjust-reset[hidden] { display: none; }
+
+/* The list of what can be changed. On a wide screen all three sliders are on
+   show below it, so it is only the reset — the way in is the row itself. */
+.adjust-picker { display: flex; align-items: center; gap: 6px; }
+.adjust-pick { display: none; }
+/* A channel that has been moved says so, so the list is also a summary. */
+.adjust-pick[data-touched="true"] { border-color: var(--accent); color: var(--accent-2); }
+.adjust-back { display: none; }
 
 .adjust-rows { display: grid; gap: 10px; margin-top: 14px; }
 .adjust-row {
@@ -1000,6 +1024,10 @@ body.is-framing .nav:focus-within { opacity: 1; }
 }
 .strip.is-complete .strip-count { color: var(--positive); }
 .strip-head button { min-height: 28px; padding: 0 10px; font-size: 11.5px; }
+/* The queue's own Keep button belongs to the narrow layout, where the beat
+   cannot afford a row of its own over the picture. */
+.finalize-small { display: none; }
+.finalize-small[hidden] { display: none; }
 
 /* The queue and the invitation share a line: the strip reads left to right as
    "here is what you have, and here is how to add to it". */
@@ -1123,6 +1151,11 @@ body.is-framing .thumb.is-active { box-shadow: 0 0 0 3px var(--accent-soft), var
   border-left: 1px solid var(--line);
   background: var(--bg-2);
 }
+/* On the desktop the panel is one scrolling column, so its body is not a box —
+   it is the same column. The wrapper exists for the phone, where the header and
+   the export button have to stay put while only the middle moves. */
+.panel-body { display: contents; }
+
 .panel h2 {
   margin: 0 0 12px;
   color: var(--ink-4);
@@ -1659,61 +1692,66 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   }
   .sheet-open .icon { width: 16px; height: 16px; }
 
-  /* Panel as a bottom sheet. */
+  /* The panel takes the whole screen, like the size picker does. A sheet with
+     the app showing behind it invites a swipe to dismiss that never worked, and
+     spends its height on the thing it is covering. */
   .panel {
     position: fixed;
-    left: 0; right: 0; bottom: 0;
+    inset: 0;
     z-index: 30;
-    max-height: 86svh;
-    padding: 8px 16px max(16px, env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    padding: 0 16px;
     border-left: 0;
-    border-top: 1px solid var(--line);
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-radius: 0;
     background: var(--surface);
-    box-shadow: var(--shadow-lift);
     transform: translateY(101%);
     transition: transform .26s var(--ease);
     overscroll-behavior: contain;
   }
   .sheet-toggle:checked ~ .app .panel { transform: none; }
 
-  /* Closing the sheet was a guess: a grip says "drag me", this sheet does not
-     drag, and the only thing that worked was tapping the dimmed strip of app
-     showing above it. Now the whole header is the target and it says so. */
+  /* Closing was a guess: a grip says "drag me", this never dragged, and the
+     only thing that worked was tapping the strip of app showing above it. */
   .sheet-close {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 10px;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    margin: 0 -16px 6px;
-    padding: 12px 0 13px;
+    gap: 4px;
+    flex: 0 0 auto;
+    margin: 0 -16px;
+    padding: 14px 16px;
     border-bottom: 1px solid var(--line-soft);
     background: var(--surface);
-    color: var(--ink-3);
-    font-size: 12.5px;
+    color: var(--accent-2);
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
   }
-  .sheet-grip {
-    display: block;
-    width: 30px; height: 4px;
-    border-radius: 999px;
-    background: var(--surface-2);
-  }
+  .sheet-close .icon { width: 18px; height: 18px; }
+  .sheet-grip { display: none; }
 
-  /* The export button is the end of the sentence and it was below the fold, at
-     the bottom of a list nobody knew they had to scroll. It rides along. */
+  /* Only the middle scrolls, so the export button is always where it was and
+     nothing slides underneath it. */
+  .panel-body {
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-top: 4px;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+  }
   .panel .block-export {
-    position: sticky;
-    bottom: 0;
-    margin-top: 20px;
-    padding: 14px 0 4px;
+    flex: 0 0 auto;
+    margin: 0 -16px;
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--line);
     background: var(--surface);
   }
+
+  /* The size lives in the top bar now, where it can be answered without opening
+     anything. Asking the same question twice is how people end up wondering
+     which one is in charge. */
+  .panel .size-button, .panel #sizeNote { display: none; }
 
   .sheet-scrim {
     display: block;
@@ -1779,27 +1817,68 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   .adjust {
     left: 8px; right: 8px; bottom: 8px;
     width: auto;
-    padding: 10px 12px 12px;
+    padding: 8px;
     border-radius: var(--radius);
-    background: oklch(1 0 0 / 0.90);
+    background: oklch(1 0 0 / 0.92);
   }
-  .adjust h2, .adjust .adjust-keep, .adjust-mark { display: none; }
-  .adjust-head { justify-content: flex-end; min-height: 0; }
-  .adjust-reset { margin: 0; }
-  .adjust-rows { margin-top: 4px; gap: 6px; }
-  .adjust-row { grid-template-columns: 58px 1fr 34px; gap: 8px; }
+  /* Everything that is not a control goes: the heading, the mark, the sentence
+     of reassurance, the whole head row. Two rows at most, and the same two
+     however far through the job you are. */
+  .adjust h2, .adjust .adjust-keep, .adjust-mark, .adjust-head { display: none; }
+  .adjust-rows { margin-top: 0; gap: 0; }
+
+  /* Row one: what you can change. Row two, in its place, once you have picked:
+     the way back and the slider itself, which takes everything that is left. */
+  .adjust-picker { gap: 6px; }
+  .adjust-picker[data-picked=""] { display: flex; }
+  .adjust-picker:not([data-picked=""]) { display: none; }
+  .adjust-pick {
+    display: inline-flex;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 6px;
+    font-size: 12px;
+  }
+  .adjust-reset { flex: 0 0 auto; margin: 0; min-height: 40px; font-size: 11.5px; }
+
+  .adjust-row { display: none; }
+  .adjust-row[data-active="true"] {
+    display: grid;
+    grid-template-columns: 40px 1fr 40px;
+    gap: 8px;
+  }
+  .adjust-row label { display: none; }
+  .adjust-back {
+    display: inline-flex;
+    min-height: 40px; min-width: 40px;
+    padding: 0;
+  }
+  .adjust-back .icon { width: 18px; height: 18px; }
   /* A range with room to aim, and a thumb a finger can find. */
-  .adjust-row input[type="range"] { height: 30px; }
+  .adjust-row input[type="range"] { height: 40px; }
 
   /* The queue is a thumb-flick, so it gets momentum and stops where a thumbnail
      starts rather than halfway through one. Its buttons take the same 44px
      every other target on this screen does. */
   /* No safe-area padding here: the tab bar sits below the queue and already
      carries it, and paying for the same inset twice is a gap, not a margin. */
+  /* Batch was six stacked rows on a phone: a floating bar over the picture, a
+     step count, a note about the view's scale, the zoom, the progress, and the
+     queue itself. Rows are the expensive thing on this screen. The beat, the
+     count and the progress become one line above the thumbnails, and the two
+     notes that were describing the view rather than the work go entirely. */
   .strip { padding: 10px 14px; }
-  .strip-head { flex-wrap: wrap; gap: 8px; }
-  .strip-head .progress { flex-basis: 100%; order: -1; }
+  .strip-head { flex-wrap: nowrap; gap: 8px; }
+  .strip-head .progress { flex: 1 1 auto; min-width: 0; order: 0; }
   .strip-head button { min-height: 40px; }
+  .strip-count { flex: 0 0 auto; white-space: nowrap; font-size: 11.5px; }
+  /* The tick alone: "frame the rest" is a sentence this row cannot afford. */
+  .approve-all-word { display: none; }
+  #approveAll { padding: 0 10px; }
+  .finalize-small { display: inline-flex; flex: 0 0 auto; padding: 0 14px; }
+  .framing { display: none; }
+  #scaleChip { display: none; }
   .strip-body { gap: 12px; }
   .strip-empty { font-size: 14px; }
   .strip-rail {
