@@ -104,12 +104,14 @@ export function releaseFreeform(state: AppState): AppState {
 }
 
 /**
- * What an export would actually write. Freeform describes one rectangle of one
- * image, so it exports the image on the stage even when a queue is still loaded
- * behind it from a batch that Freeform switched off.
+ * What an export would actually write: the room decides. Batch is the room that
+ * writes many files; everywhere else the answer is the picture on the stage,
+ * even when a queue is still loaded behind it — leaving Batch does not throw the
+ * queue away, so "what is loaded" and "what would be written" are two different
+ * questions and only one of them is about the button.
  */
 export function exportItems(state: AppState): readonly CropItem[] {
-  if (state.cropMode !== 'freeform') return state.items;
+  if (state.batch && state.cropMode !== 'freeform') return state.items;
   const active = activeOf(state);
   return active ? [active] : [];
 }

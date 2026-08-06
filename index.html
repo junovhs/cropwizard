@@ -24,7 +24,12 @@
   <aside class="rail">
     <!-- The two modes were stage-mounted tabs. They are the app's only real
          navigation, so they read as navigation. -->
-    <nav id="mode" class="nav" role="tablist" aria-label="What to do with this image">
+    <!-- Three rooms, not two jobs and a switch. Batch used to be a flag laid
+         over the single-image workspace, and it leaked in every direction: the
+         queue appeared before any queue existed, stayed after you had left, and
+         leaving erased it. A room you are either in or not in cannot do any of
+         that (DEC-04 still holds — this control is what turns batch off). -->
+    <nav id="mode" class="nav" role="tablist" aria-label="What to do">
       <button id="modeCrop" class="nav-item" type="button" role="tab"
         aria-selected="true" aria-controls="stage">
         <span class="icon" data-icon="crop"></span>
@@ -35,19 +40,12 @@
         <span class="icon" data-icon="sliders"></span>
         <span class="nav-label">Adjust</span>
       </button>
-    </nav>
-
-    <!-- Batch is a mode, not a queue control, so it is chosen where modes are
-         chosen — beside the two jobs, not buried in the strip it turns on. It
-         is the same switch in both directions (DEC-04). -->
-    <div class="rail-batch">
-      <button id="enableBatch" class="nav-item batch-toggle" type="button" aria-pressed="false">
+      <button id="modeBatch" class="nav-item" type="button" role="tab"
+        aria-selected="false" aria-controls="strip">
         <span class="icon" data-icon="layers"></span>
         <span class="nav-label">Batch</span>
-        <span id="batchState" class="batch-state">Off</span>
       </button>
-      <p id="batchNote" class="rail-note">Frame a whole stack in one pass.</p>
-    </div>
+    </nav>
 
     <div class="rail-foot">
       <!-- Two sentences about direct manipulation. They used to float over the
@@ -107,23 +105,6 @@
           <p class="empty-privacy">Nothing is uploaded. Images stay in your browser.</p>
         </div>
 
-        <!-- Switching Batch on by hand is a statement about the next drop, so
-             the card that describes the drop is the thing that has to change.
-             Same words as the explainer modal, in the place you are already
-             looking, and with no count to state because nothing has arrived. -->
-        <div id="emptyBatch" class="empty-inner empty-batch" hidden>
-          <span class="empty-mark icon" data-icon="layers"></span>
-          <h1>Batch crop</h1>
-          <p>Every image gets its own crop, and you make each one.</p>
-          <ol class="coach-steps">
-            <li><strong>Drop a stack</strong>, or choose them below.</li>
-            <li><strong>Drag and scroll</strong> the image until the frame holds what you want.</li>
-            <li><strong>Press <kbd>↵</kbd></strong>, or hit <em>Finalize this crop</em>, to keep it and jump to the next one.</li>
-            <li>At the end, export the lot as a single ZIP.</li>
-          </ol>
-          <button id="batchAdd" class="primary" type="button"><span class="icon" data-icon="image"></span>Choose images</button>
-          <p class="empty-privacy">Changed your mind? Turn Batch off in the sidebar.</p>
-        </div>
       </div>
 
       <div id="adjust" class="adjust" role="tabpanel" aria-labelledby="modeAdjust" hidden>

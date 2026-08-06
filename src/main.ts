@@ -155,43 +155,50 @@ function showFileIdentity(item: CropItem): void {
   $('#fileDims').textContent = `${item.image.naturalWidth} × ${item.image.naturalHeight}`;
 }
 
-// ---- mode ------------------------------------------------------------------
+// ---- rooms -----------------------------------------------------------------
 
-// Cropping and adjusting are two jobs on one image, so they are two modes on
-// one stage rather than two doors at the entrance: you pick after you can see
-// the picture, and you can change your mind for free.
-type Mode = 'crop' | 'adjust';
-let mode: Mode = 'crop';
+// Three rooms rather than two jobs and a switch. Crop and Adjust are two things
+// to do to the picture in front of you; Batch is a different proposition
+// entirely — a queue, a beat, and an export that writes many files — and it was
+// previously a flag laid over the other two. That leaked: the queue appeared
+// before there was a queue, stayed on screen after you had left it, and leaving
+// destroyed it. A room you are either in or not in cannot do any of that.
+type Room = 'crop' | 'adjust' | 'batch';
+let room: Room = 'crop';
 let hasImage = false;
 
+// The framing surface belongs to two of the three rooms: Batch is Crop with a
+// queue attached, so the frame, the zoom and the readouts are all still the job.
+const framingRoom = (): boolean => room !== 'adjust';
+
 // One place decides what is on the stage, because visibility depends on both
-// facts at once — whether there is an image, and which job you are doing.
+// facts at once — whether there is an image, and which room you are in.
 function syncStageChrome(): void {
-  const cropping = mode === 'crop';
+  const framing = framingRoom();
+  const batching = room === 'batch';
   $('#empty').hidden = hasImage;
-  // The two modes are the app's navigation now, so they stay on screen and go
-  // quiet instead of disappearing: an empty rail reads as a broken rail.
+  // The rooms are the app's navigation, so they stay on screen and go quiet
+  // instead of disappearing: an empty rail reads as a broken rail. Batch is the
+  // exception — it is a door to somewhere else, and it opens with no picture.
   $<HTMLButtonElement>('#modeCrop').disabled = !hasImage;
   $<HTMLButtonElement>('#modeAdjust').disabled = !hasImage;
-  $('#adjust').hidden = !hasImage || cropping;
-  // Adjusting is one image's job. On a phone the queue underneath it left the
-  // sliders sitting on the filmstrip with the picture squeezed between them —
-  // two jobs' worth of chrome for the one you are not doing. The queue is still
-  // there; it is just not in the way while you are working on the pixels.
-  $('#strip').classList.toggle('is-stowed', !cropping);
+  $('#adjust').hidden = !hasImage || framing;
   // The crop readouts describe a framing decision, so they are only true while
   // that is the decision being made.
-  $('#readout').hidden = !hasImage || !cropping;
-  $('#hints').hidden = !hasImage || !cropping;
+  $('#readout').hidden = !hasImage || !framing;
+  $('#hints').hidden = !hasImage || !framing;
   // Visibility depends on the frame's room as well as the mode, so it is
   // settled in one place — syncFitChrome, which is also what resize calls.
   syncFitChrome();
   // Zoom is a fact about the framing, so it is on screen exactly as long as the
-  // framing is the job in hand. The ratio lock is the same kind of fact.
-  $('#zoomTool').hidden = !hasImage || !cropping;
-  $('#freeform').hidden = !hasImage || !cropping;
-  $('#modeCrop').setAttribute('aria-selected', String(cropping));
-  $('#modeAdjust').setAttribute('aria-selected', String(!cropping));
+  // framing is the job in hand.
+  $('#zoomTool').hidden = !hasImage || !framing;
+  // Freeform is one image's answer, so it is not on offer in the room whose
+  // whole basis is a size every image shares.
+  $('#freeform').hidden = !hasImage || !framing || batching;
+  $('#modeCrop').setAttribute('aria-selected', String(room === 'crop'));
+  $('#modeAdjust').setAttribute('aria-selected', String(room === 'adjust'));
+  $('#modeBatch').setAttribute('aria-selected', String(batching));
   syncFramingChrome();
 }
 
@@ -204,7 +211,7 @@ function syncStageChrome(): void {
 function syncFramingChrome(): void {
   const state = store.get();
   const item = activeItem(state);
-  const framing = state.batch && mode === 'crop' && !!item;
+  const framing = room === 'batch' && !!item;
   $('#framing').hidden = !framing;
 
   if (!framing || !item) {
@@ -250,14 +257,41 @@ function closeCoach(): void {
   canvas.focus();
 }
 
-function setMode(next: Mode): void {
-  if (next === mode) return;
-  mode = next;
+const ROOM_SAID: Readonly<Record<Room, string>> = {
+  crop: 'Crop. Move or resize the frame, then it recentres with your crop',
+  adjust: 'Adjust. The crop is left exactly as it was',
+  batch: 'Batch. Frame each image, then keep it',
+};
+
+/**
+ * Go to a room.
+ *
+ * Batch is the one with a door rather than a light switch. Entering it needs a
+ * queue, so with nothing queued it asks for one and waits — the room does not
+ * open, and nothing about the screen changes, until images actually arrive.
+ * That is the whole fix for a filmstrip that used to appear the instant the
+ * control was touched and stay after you had gone.
+ *
+ * Leaving keeps the queue. Navigating away from a room is not a decision to
+ * throw its contents out, and coming back to find the work gone is the kind of
+ * thing that costs trust once and for good.
+ */
+function goTo(next: Room): void {
+  if (next === room) return;
+
+  if (next === 'batch' && store.get().items.length < 2) {
+    awaitingBatchSize = true;
+    announce('Choose the images to frame');
+    openPicker();
+    return;
+  }
+
+  room = next;
+  store.set({ batch: next === 'batch' });
   syncStageChrome();
-  announce(next === 'crop'
-    ? 'Crop. Move or resize the frame, then it recentres with your crop'
-    : 'Adjust. The crop is left exactly as it was');
-  if (next === 'crop') canvas.focus();
+  syncUI();
+  announce(ROOM_SAID[next]);
+  if (next !== 'adjust') canvas.focus();
 }
 
 function setChromeVisible(on: boolean): void {
@@ -316,7 +350,7 @@ function syncFitChrome(): void {
     current = 'true';
   }
   const percent = Math.round(view.getFrameScale() * 100);
-  $('#viewMode').hidden = !hasImage || mode !== 'crop' || (!canEnlarge && !canShrink);
+  $('#viewMode').hidden = !hasImage || !framingRoom() || (!canEnlarge && !canShrink);
   for (const option of $$<HTMLButtonElement>('#viewMode [role="radio"]')) {
     const value = option.dataset.view ?? 'true';
     option.setAttribute('aria-checked', String(value === current));
@@ -472,42 +506,39 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
     if (lead) items[0] = { ...lead, frame: wholeFrame(lead), framedFor: targetKey(s.target) };
   }
 
-  // A stack is its own answer to the question the app used to ask (DEC-04):
-  // dropping twelve files is the deliberate act, so it is honoured rather than
-  // queried. Showing one of the twelve and flashing a switch made the user say
-  // the same thing twice. Entering this way is never silent, and the switch
-  // that turned it on turns it off again.
-  if (!s.batch && items.length > 1) {
-    store.set({ batch: true, items, activeIndex: -1 });
-    activate(0);
-    syncBatchChrome();
-    openCoach(items.length);
-    announce(`${items.length} images loaded. Batch is on — frame each one, then keep it`);
+  // A stack chosen by going to Batch is the answer to "which images", so it is
+  // the queue — and the room opens now, on the images, rather than the moment
+  // the control was touched. One image chosen this way is a stack of one and
+  // still opens the room; the door was walked through on purpose.
+  if (awaitingBatchSize) {
+    awaitingBatchSize = false;
+    enterBatchWith(items);
+    announce(`${items.length} image${items.length === 1 ? '' : 's'} ready to frame`);
+    // The one question left is the size they all have to come out at, asked now
+    // by the control that answers it rather than left as a sentence to find.
+    sizePicker.open();
     return;
   }
 
-  // Single mode is a replacement, not an append: the new image takes the stage
-  // and every setting stays exactly where it was (DEC-04).
-  if (!s.batch) {
+  // A stack is its own answer to the question the app used to ask (DEC-04):
+  // dropping twelve files is the deliberate act, so it is honoured rather than
+  // queried. Entering this way is never silent — the explainer says what the
+  // room asks of you, once, because you did not ask to be in it.
+  if (room !== 'batch' && items.length > 1) {
+    enterBatchWith(items);
+    openCoach(items.length);
+    announce(`${items.length} images loaded. Batch — frame each one, then keep it`);
+    return;
+  }
+
+  // Outside Batch a drop is a replacement, not an append: the new image takes
+  // the stage and every setting stays exactly where it was (DEC-04).
+  if (room !== 'batch') {
     const replaced = s.items.length > 0;
     const kept = items[0];
     store.set({ items: [kept], activeIndex: -1 });
     activate(0);
     announce(replaced ? `Replaced with ${kept.file.name}` : `${kept.file.name} loaded`);
-    return;
-  }
-
-  // A stack chosen by going to Batch is the answer to "which images", so it
-  // replaces what was there. Anything arriving later joins the queue.
-  if (awaitingBatchSize) {
-    awaitingBatchSize = false;
-    store.set({ items, activeIndex: -1 });
-    activate(0);
-    syncUI();
-    announce(`${items.length} image${items.length === 1 ? '' : 's'} ready to frame`);
-    // The one question left is the size they all have to come out at, asked now
-    // by the control that answers it rather than left as a sentence to find.
-    sizePicker.open();
     return;
   }
 
@@ -522,62 +553,14 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
 // asked by the thing that answers it.
 let awaitingBatchSize = false;
 
-// Batch is a mode, so it is one switch that works in both directions (DEC-04).
-// Turning it off is not a way to lose work by accident: the image you are
-// looking at survives, and only the queue behind it goes.
-function setBatch(on: boolean): void {
-  const state = store.get();
-  if (state.batch === on) return;
-
-  if (on) {
-    store.set({ batch: true });
-    syncBatchChrome();
-    syncUI();
-    // Turning Batch on is a statement about images you have not chosen yet, so
-    // it asks for them. The card that used to stand here explained what the mode
-    // does; opening the picker shows it, and the size question follows the
-    // pictures in. Whatever was on the stage is what the new stack replaces —
-    // going to Batch means "these images", not "this one and some others".
-    awaitingBatchSize = true;
-    announce('Batch on. Choose the images to frame');
-    openPicker();
-    return;
-  }
-
-  // Leaving Batch cancels the question it was waiting on, so a later drop is
-  // not read as the answer to a stack nobody is choosing any more.
-  awaitingBatchSize = false;
-  const kept = activeItem(state);
-  store.set({
-    batch: false,
-    items: kept ? [kept] : [],
-    activeIndex: kept ? 0 : -1,
-  });
-  syncBatchChrome();
+// Entering Batch is the act of choosing a stack, and until a stack exists there
+// is no room to be in. This is the only path that turns the queue on.
+function enterBatchWith(items: readonly CropItem[]): void {
+  room = 'batch';
+  store.set({ batch: true, items, activeIndex: -1 });
+  activate(0);
+  syncStageChrome();
   syncUI();
-  announce(kept
-    ? `Batch off. Keeping ${kept.file.name}, the rest of the queue is gone`
-    : 'Batch off. One image at a time');
-}
-
-// What the rail switch says about itself, and what it promises next.
-function syncBatchChrome(): void {
-  const on = store.get().batch;
-  $('#enableBatch').setAttribute('aria-pressed', String(on));
-  // An empty stage is an instruction, so it has to be the instruction that is
-  // actually true: with batch on, the next drop behaves differently and the
-  // card says how. One card is swapped for the other in place — a second card
-  // stacked underneath would be two answers to the same question.
-  // ...except on a phone, where turning Batch on goes straight to the photo
-  // picker. Swapping the card behind a picker that is already opening is a
-  // change nobody sees the point of and everybody sees flicker past.
-  const swap = on && !narrow();
-  $('#emptyDefault').hidden = swap;
-  $('#emptyBatch').hidden = !swap;
-  $('#batchState').textContent = on ? 'On' : 'Off';
-  $('#batchNote').textContent = on
-    ? 'Frame each image, then keep it. Turn off to go back to one.'
-    : 'Frame a whole stack in one pass.';
 }
 
 // Take the output size from the picture while the size is still provisional.
@@ -808,16 +791,13 @@ function applyTarget({ w, h, name }: TargetSelection): void {
 
 // ---- freeform --------------------------------------------------------------
 
-// The preset above is suspended rather than unavailable, and Batch has no
-// shared output size to work from, so both say what is true of them right now.
+// The preset is suspended rather than unavailable while Freeform is on, and the
+// Batch room asks for a size on the way in — so neither has to be disabled and
+// neither has to explain itself in a sentence nobody reads.
 function syncFreeformChrome(): void {
   const on = isFreeform();
   $('#freeform').setAttribute('aria-pressed', String(on));
   $('#sizeButton').classList.toggle('is-suspended', on);
-
-  const batch = $('#enableBatch');
-  batch.setAttribute('aria-disabled', String(on));
-  batch.title = on ? 'Choose an output size to use Batch.' : '';
   syncSizeConfidence();
 }
 
@@ -829,13 +809,14 @@ function setFreeform(on: boolean): void {
     const framing = view.hasImage() ? view.getFraming() : null;
     const state = store.transact((current) => enterFreeform(current, framing));
     view.setFreeform(true);
+    // Freeform is one image's answer, so it cannot be given in the room whose
+    // whole basis is a size every image shares. Leaving is a move between
+    // rooms, not a deletion: the queue is exactly where it was.
+    if (room === 'batch') room = 'crop';
     showAppliedTarget(state.target);
-    syncBatchChrome();
+    syncStageChrome();
     syncFreeformChrome();
-    // Freeform is one image's answer, so it cannot also be a batch's (DEC-04
-    // keeps the switch honest in both directions). Nothing is unloaded — the
-    // queue is still there when a size is chosen again.
-    if (before.batch) showNotice('Batch turned off — Freeform applies to one image.');
+    if (before.batch) showNotice('Left Batch — Freeform applies to one image.');
     announce('Freeform crop enabled. Aspect ratio unlocked');
     return;
   }
@@ -951,8 +932,10 @@ function showState(state: AppState): void {
   } else {
     setChromeVisible(false);
   }
+  // The room is part of the state being restored, since the queue's presence is.
+  if (state.batch !== (room === 'batch')) room = state.batch ? 'batch' : 'crop';
+  syncStageChrome();
   syncFitChrome();
-  syncBatchChrome();
   syncUI();
 }
 
@@ -975,7 +958,6 @@ $('#redo').addEventListener('click', () => {
 
 const openPicker = () => { fileInput.value = ''; fileInput.click(); };
 $('#emptyAdd').onclick = openPicker;
-$('#batchAdd').onclick = openPicker;
 fileInput.onchange = () => { if (fileInput.files) void intake(fileInput.files); };
 
 let dragDepth = 0;
@@ -1035,7 +1017,7 @@ document.addEventListener('keydown', (e) => {
   // adjusting, and a stray arrow that quietly re-crops the image you were only
   // trying to brighten is exactly the kind of thing that costs trust. Switching
   // job is a labelled button on the stage, deliberately not a letter to learn.
-  if (mode !== 'crop') return;
+  if (!framingRoom()) return;
 
   // Arrows fine-tune the framing; brackets (or j/k) move through the queue.
   // Nudging is the more frequent act, so it keeps the arrows.
@@ -1071,17 +1053,6 @@ new ResizeObserver(() => { view.resize(); syncFitChrome(); }).observe(stage);
 for (const option of $$<HTMLButtonElement>('#viewMode [role="radio"]')) {
   option.addEventListener('click', () => setViewMode((option.dataset.view ?? 'true') as FrameView));
 }
-// Batch is not disabled while Freeform is on — it is focusable, clickable, and
-// answers with the reason instead of the mode change. A control that does
-// nothing at all teaches nothing at all.
-$('#enableBatch').addEventListener('click', () => {
-  if (isFreeform()) {
-    showNotice('Choose an output size to use Batch.');
-    announce('Batch is unavailable in Freeform. Choose an output size to use Batch');
-    return;
-  }
-  setBatch(!store.get().batch);
-});
 $('#freeform').addEventListener('click', () => setFreeform(!isFreeform()));
 // The size question, asked from the top bar as well as from the panel.
 $('#sizeChip').addEventListener('click', () => sizePicker.open());
@@ -1096,15 +1067,15 @@ $('#coachGo').addEventListener('click', closeCoach);
 $('#coach').addEventListener('mousedown', (event) => {
   if (event.target === $('#coach')) closeCoach();
 });
-$('#modeCrop').addEventListener('click', () => setMode('crop'));
-$('#modeAdjust').addEventListener('click', () => setMode('adjust'));
+$('#modeCrop').addEventListener('click', () => goTo('crop'));
+$('#modeAdjust').addEventListener('click', () => goTo('adjust'));
+$('#modeBatch').addEventListener('click', () => goTo('batch'));
 
 // ---- boot ------------------------------------------------------------------
 
 paintIcons();
 renderPins();
 setChromeVisible(false);
-syncBatchChrome();
 syncFreeformChrome();
 syncUI();
 const boot = store.get().target;

@@ -87,7 +87,22 @@ test('freeform and batch cannot both be on, and nothing is unloaded', () => {
   assert.equal(state.items[1].approved, true, 'finished work is untouched');
   // ...but only the image on the stage is what an export would write.
   assert.deepEqual(exportItems(state).map((item) => item.id), ['a']);
-  assert.equal(exportItems(batched).length, 3, 'outside freeform the queue exports whole');
+  assert.equal(exportItems(batched).length, 3, 'in Batch the queue exports whole');
+});
+
+test('the room decides what an export writes, not what is loaded', () => {
+  const queue = [fakeItem('a'), fakeItem('b'), fakeItem('c')];
+
+  // Inside Batch, every image in the queue.
+  assert.equal(exportItems(presetState({ batch: true, items: queue })).length, 3);
+
+  // Outside it, the picture on the stage — the queue is still loaded, because
+  // leaving a room is not a decision to throw its contents away, but it is not
+  // what the export button is offering.
+  const left = presetState({ batch: false, items: queue, activeIndex: 1 });
+  assert.deepEqual(exportItems(left).map((item) => item.id), ['b']);
+
+  assert.equal(exportItems(presetState({ items: [], activeIndex: -1 })).length, 0);
 });
 
 test('a released freeform crop becomes the output size at 1:1', () => {

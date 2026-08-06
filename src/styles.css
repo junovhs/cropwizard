@@ -260,38 +260,9 @@ button.ghost:hover:not(:disabled) { background: oklch(0.55 0.02 70 / 0.07); colo
 .nav-item[aria-selected="true"] .icon { color: var(--accent); }
 .nav-item:disabled { opacity: .4; }
 
-/* ---- batch switch ----
-   A mode, so it sits with the modes — but it is a switch rather than a
-   destination, so it is separated by a rule and says its own state out loud. */
-
-.rail-batch {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line-soft);
-}
-.batch-toggle { width: 100%; }
-.batch-toggle .icon { color: var(--ink-3); }
-.batch-state {
-  margin-left: auto;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: oklch(0.55 0.02 70 / 0.1);
-  color: var(--ink-4);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-}
-/* On is the app's one selection colour, exactly as a chosen mode is. */
-.batch-toggle[aria-pressed="true"] {
-  background: var(--accent-tint);
-  border-color: oklch(0.68 0.13 50 / 0.28);
-  color: var(--accent-2);
-  font-weight: 600;
-}
-.batch-toggle[aria-pressed="true"] .icon { color: var(--accent); }
-.batch-toggle[aria-pressed="true"] .batch-state { background: oklch(1 0 0 / 0.75); color: var(--accent-2); }
+/* Batch is a room like the other two now, so it is a nav item like the other
+   two: the same selected state, the same target, no rule dividing it off and no
+   pill spelling out a state the selection already shows. */
 
 .rail-note { margin: 8px 4px 0; color: var(--ink-4); font-size: 11px; line-height: 1.45; }
 
@@ -1219,13 +1190,6 @@ body.is-framing .thumb.is-active { box-shadow: 0 0 0 3px var(--accent-soft), var
 .size-button.is-suspended:hover .swatch,
 .size-button.is-suspended:focus-visible .swatch { opacity: 1; }
 
-/* Batch has no output contract to share while Freeform is on. It says so on
-   hover and focus rather than going dark and silent, so it stays reachable by
-   keyboard and the reason is where the pointer already is. */
-.batch-toggle[aria-disabled="true"] { color: var(--ink-3); }
-.batch-toggle[aria-disabled="true"] .icon,
-.batch-toggle[aria-disabled="true"] .batch-state { color: var(--ink-4); }
-.batch-toggle[aria-disabled="true"]:hover { background: transparent; }
 
 /* One sentence about something the app just did for you. It sits above the
    stage, says its piece, and leaves. */
@@ -1659,21 +1623,7 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   .nav-label-more { display: none; }
   .rail-foot { display: none; }
 
-  /* In the tab bar the switch is one more control on the row: no rule above it
-     and no room for a sentence explaining it. On a phone the pill spelling out
-     "OFF" goes too — four controls have to cross the screen, and the lit accent
-     state says the same thing in no width at all. */
-  .rail-batch { flex: 0 0 auto; margin: 0; padding: 0; border-top: 0; }
-  .batch-toggle {
-    width: auto;
-    justify-content: center;
-    gap: 8px;
-    min-height: 44px;
-    font-size: 12.5px;
-    white-space: nowrap;
-  }
   .rail-note { display: none; }
-  .batch-state { display: none; }
 
   .sheet-open {
     display: inline-flex;
@@ -1884,8 +1834,6 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   #scaleChip { display: none; }
   .strip-body { gap: 12px; }
   .strip-empty { font-size: 14px; }
-  /* Out of the way while the other job is on screen. */
-  .strip.is-stowed { display: none; }
   .strip-rail {
     gap: 8px;
     scroll-snap-type: x proximity;
