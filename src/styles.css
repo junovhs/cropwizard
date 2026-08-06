@@ -469,6 +469,17 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   box-shadow: var(--shadow-small);
   backdrop-filter: blur(8px);
 }
+/* The one chip that is a control. The readout row is deliberately transparent
+   to the pointer — it sits over the picture and must not intercept a drag — so
+   this claims the pointer back for itself alone. */
+.crop-chip {
+  min-height: 0;
+  pointer-events: auto;
+  font-weight: inherit;
+  cursor: pointer;
+}
+.crop-chip:hover { border-color: var(--accent); color: var(--accent-2); }
+
 .chip strong { color: var(--ink); font-weight: 600; }
 .chip.good strong { color: var(--positive); }
 .chip.warn strong { color: var(--warn); }
@@ -1143,6 +1154,11 @@ body.is-framing .thumb.is-active { box-shadow: 0 0 0 3px var(--accent-soft), var
 .size-button.is-provisional { border-style: dashed; border-color: var(--edge); }
 .size-button.is-provisional .swatch { border-style: dashed; background: none; }
 
+/* The top bar's size control belongs to the mobile layout, where the panel that
+   normally carries it is a sheet two taps away. On the desktop the panel is
+   right there, and two of the same control is one too many. */
+.size-chip { display: none; }
+
 /* A preset suspended by Freeform. It is still the size you chose and still a
    working control — one click puts you back in it — so it steps back in
    contrast rather than taking on the flat, unreachable look of a disabled
@@ -1565,8 +1581,18 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   /* The filename has no room beside the wordmark; the stage shows the image and
      the sheet names the file, so nothing is actually lost. */
   .topbar .file-id { display: none; }
-  .top-actions button { min-height: 32px; padding: 0 10px; font-size: 12px; }
+  .top-actions { gap: 6px; }
+  .top-actions button { min-height: 36px; padding: 0 10px; font-size: 12px; }
   .top-actions button .icon { width: 15px; height: 15px; }
+  /* The size is the question people came to answer, so it keeps its words and
+     the loader gives up its own — a picture of a page with an arrow is not
+     ambiguous, and "1200 × 1200" is not guessable from an icon. */
+  .add-word { display: none; }
+  .size-chip {
+    display: inline-flex;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
 
   /* Rail becomes the bottom tab bar. */
   .rail {
@@ -1651,22 +1677,42 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   }
   .sheet-toggle:checked ~ .app .panel { transform: none; }
 
+  /* Closing the sheet was a guess: a grip says "drag me", this sheet does not
+     drag, and the only thing that worked was tapping the dimmed strip of app
+     showing above it. Now the whole header is the target and it says so. */
   .sheet-close {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
     position: sticky;
     top: 0;
     z-index: 1;
     margin: 0 -16px 6px;
-    padding: 10px 0 12px;
+    padding: 12px 0 13px;
+    border-bottom: 1px solid var(--line-soft);
     background: var(--surface);
+    color: var(--ink-3);
+    font-size: 12.5px;
+    font-weight: 600;
     cursor: pointer;
   }
   .sheet-grip {
     display: block;
-    width: 40px; height: 4px;
-    margin: 0 auto;
+    width: 30px; height: 4px;
     border-radius: 999px;
     background: var(--surface-2);
+  }
+
+  /* The export button is the end of the sentence and it was below the fold, at
+     the bottom of a list nobody knew they had to scroll. It rides along. */
+  .panel .block-export {
+    position: sticky;
+    bottom: 0;
+    margin-top: 20px;
+    padding: 14px 0 4px;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
   }
 
   .sheet-scrim {
@@ -1725,8 +1771,25 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   .coach-panel { padding: 24px 22px 22px; }
   .coach h2 { font-size: 20px; }
 
-  .adjust { left: 12px; right: 12px; bottom: 12px; width: auto; padding: 15px; }
-  .adjust-row { grid-template-columns: 62px 1fr 38px; }
+  /* Adjusting is a job you do by watching the picture, and on a phone this
+     panel was standing on it — three sliders and a heading covering the thing
+     they change, so moving one looked like it did nothing at all. It gives up
+     everything that is not a control: the heading, the reassurance, the
+     padding. What is left is a strip along the bottom with the image above it. */
+  .adjust {
+    left: 8px; right: 8px; bottom: 8px;
+    width: auto;
+    padding: 10px 12px 12px;
+    border-radius: var(--radius);
+    background: oklch(1 0 0 / 0.90);
+  }
+  .adjust h2, .adjust .adjust-keep, .adjust-mark { display: none; }
+  .adjust-head { justify-content: flex-end; min-height: 0; }
+  .adjust-reset { margin: 0; }
+  .adjust-rows { margin-top: 4px; gap: 6px; }
+  .adjust-row { grid-template-columns: 58px 1fr 34px; gap: 8px; }
+  /* A range with room to aim, and a thumb a finger can find. */
+  .adjust-row input[type="range"] { height: 30px; }
 
   /* The queue is a thumb-flick, so it gets momentum and stops where a thumbnail
      starts rather than halfway through one. Its buttons take the same 44px

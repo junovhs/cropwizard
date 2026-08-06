@@ -327,8 +327,13 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     template = getTemplate?.() ?? null;
     const shapeHint = root.querySelector<HTMLElement>('#shapeHint');
     if (shapeHint) shapeHint.hidden = !template;
-    input.select();
-    input.focus();
+    // On a touch screen, focusing the field throws up the keyboard and takes
+    // half the list with it — before anyone has had a chance to look at what is
+    // on offer. Typing is one tap away; seeing the list should not be.
+    if (!matchMedia('(pointer: coarse)').matches) {
+      input.select();
+      input.focus();
+    }
     cursor = 0;
     render();
     requestAnimationFrame(() => root.classList.add('open'));

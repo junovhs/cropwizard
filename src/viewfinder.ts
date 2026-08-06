@@ -29,6 +29,8 @@ const FRAME_PAD_SHARE = 0.085; // in between, a share of the smaller dimension
 // underneath them.
 const CHROME_PAD = 34;
 const NARROW_STAGE = 620;
+// Clear of the system's own edge-swipe strip, plus the reach around a handle.
+const EDGE_GESTURE_PAD = 48;
 const MAX_ZOOM = 8;           // relative to the minimum covering scale
 // The floor is exactly "the picture covers the frame". Going below it was tried
 // and taken back out: it made the frame bigger than the picture, which is a
@@ -178,7 +180,16 @@ export function createViewfinder(
   // 76px is right beside a desktop stage and most of a phone.
   function framePad(): Point {
     const base = Math.min(FRAME_PAD, Math.max(FRAME_PAD_MIN, Math.min(vw, vh) * FRAME_PAD_SHARE));
-    return { x: base, y: base + (vw < NARROW_STAGE ? CHROME_PAD : 0) };
+    if (vw >= NARROW_STAGE) return { x: base, y: base };
+    return {
+      // iOS reads a drag begun within about 20px of the side as "go back", and
+      // going back throws the work away. The frame — and the reach around its
+      // handles, which extends outward — is kept clear of that strip, so no
+      // grab starts in the zone the system has already claimed.
+      x: Math.max(base, EDGE_GESTURE_PAD),
+      // The tools and readouts sit right on the picture at this width.
+      y: base + CHROME_PAD,
+    };
   }
 
   function canonicalFrame(): FrameRect {
@@ -894,9 +905,19 @@ export function createViewfinder(
     // far in you have gone. That is the only reading the frame can support: the
     // floor moves with the frame's shape, and a percentage of the source pixels
     // would change under you every time the target did.
+    // Dragging a frame handle does not magnify anything — `scale` does not move
+    // — but the number this reports is measured against the frame, and in
+    // Freeform the frame is changing shape under it. Which side dominates the
+    // covering scale flips mid-gesture, and the readout lurches for a reason
+    // that has nothing to do with what the user is doing. So while a handle is
+    // held, the reference is the frame the drag started from: the reading then
+    // says what is true, which is that the magnification has not changed.
     getZoom(): number {
       if (!image) return 1;
-      const min = minScale();
+      const held = dragging && dragging.handle !== 'pan' ? dragging.frame : null;
+      const min = held
+        ? Math.max(held.w / image.naturalWidth, held.h / image.naturalHeight)
+        : minScale();
       return min > 0 ? scale.v / min : 1;
     },
     getMaxZoom: () => MAX_ZOOM,

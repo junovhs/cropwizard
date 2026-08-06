@@ -77,7 +77,18 @@
     <div id="pins" class="pins" aria-label="Pinned sizes" hidden></div>
     <div class="spacer"></div>
     <div class="top-actions">
-      <button id="add" class="secondary" type="button"><span class="icon" data-icon="upload"></span>Add images</button>
+      <!-- The output size is the app's central question, and on a phone it was
+           only askable two taps deep inside the options sheet — which made
+           Freeform feel aimless and made Batch's "choose an output size" an
+           instruction with nowhere to follow it. Here it is on the main view,
+           stating the current answer and opening the same picker. Desktop
+           already has it in the panel, so this is the mobile half of one
+           control, not a second one. -->
+      <button id="sizeChip" class="secondary size-chip" type="button" aria-haspopup="dialog">
+        <span class="icon" data-icon="crop"></span>
+        <span id="sizeChipDims">1080 × 1080</span>
+      </button>
+      <button id="add" class="secondary" type="button" aria-label="Add images"><span class="icon" data-icon="upload"></span><span class="add-word">Add images</span></button>
     </div>
   </header>
 
@@ -207,7 +218,8 @@
                pixel size. Against a chosen output size it is a number that
                changes while the answer does not, which is a question raised
                rather than answered — so it appears in Freeform and nowhere else. -->
-          <span id="cropChip" class="chip" hidden>Output <strong id="cropSize">—</strong></span>
+          <button id="cropChip" class="chip crop-chip" type="button" hidden
+            title="Turn this crop into an exact output size">Output <strong id="cropSize">—</strong></button>
           <span id="scaleChip" class="chip" hidden></span>
         </div>
 
@@ -254,8 +266,11 @@
 
   <!-- ---- right rail: what comes out ---- -->
   <aside class="panel" aria-label="Options">
+    <!-- A grip alone reads as "drag me", and this sheet cannot be dragged. It
+         is a real, labelled target that closes on a tap, with the word on it. -->
     <label class="sheet-close" for="panelToggle" aria-label="Close options">
       <span class="sheet-grip" aria-hidden="true"></span>
+      <span class="sheet-done">Done</span>
     </label>
 
     <section class="block">

@@ -651,6 +651,8 @@ interface TargetSelection { readonly w: number; readonly h: number; readonly nam
 function showTarget(target: OutputTarget): void {
   $('#sizeName').textContent = target.label;
   $('#sizeDims').textContent = `${target.w} × ${target.h}`;
+  // The top bar's compact half of the same control.
+  $('#sizeChipDims').textContent = `${target.w} × ${target.h}`;
   // Mirror the frame's shape in the panel chip.
   const swatch = $('#sizeSwatch');
   const long = 26;
@@ -818,7 +820,7 @@ function syncSizeConfidence(): void {
         : 'Just a suggestion — click above to set the size you need.';
 }
 
-createSizePicker({
+const sizePicker = createSizePicker({
   root: $('#picker'),
   input: $('#pickerInput'),
   list: $('#pickerList'),
@@ -1027,6 +1029,12 @@ $('#enableBatch').addEventListener('click', () => {
   setBatch(!store.get().batch);
 });
 $('#freeform').addEventListener('click', () => setFreeform(!isFreeform()));
+// The size question, asked from the top bar as well as from the panel.
+$('#sizeChip').addEventListener('click', () => sizePicker.open());
+// A live pixel count you cannot touch is a number that looks like a field and
+// is not one. In Freeform the crop's size *is* the output size, so tapping it
+// asks the only question it could be asking: make this an exact size instead.
+$('#cropChip').addEventListener('click', () => { if (isFreeform()) sizePicker.open(); });
 // The button and the Enter key are the same act, so they call the same thing.
 $('#finalize').addEventListener('click', approve);
 $('#coachGo').addEventListener('click', closeCoach);
