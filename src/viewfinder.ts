@@ -1,15 +1,17 @@
 // The viewfinder.
 //
-// The crop frame is a fixed rectangle, locked to the centre of the stage at the
-// target's aspect ratio. It never moves. The image moves underneath it, and the
-// part of the image outside the frame stays on screen as a ghost so you always
-// see what you are cutting away.
+// The frame is the direct manipulation surface. While you work, it can be moved
+// and resized over the image like a conventional crop box. On release, the crop
+// itself is kept exactly as chosen, then the frame glides back to the canonical
+// centred output rectangle while the image is re-scaled and translated beneath
+// it. The result is the familiar "draw the crop" gesture without leaving the
+// workspace with a tiny, off-centre frame.
 //
-// Everything the pointer touches is expressed as three springs (scale, tx, ty).
-// While a pointer is down they are jumped so dragging is exactly 1:1; on
-// release their targets are set to the nearest legal framing and they ease home.
+// The image outside the frame remains visible as a ghost, so moving or enlarging
+// the crop always has spatial context. Wheel, pinch and the zoom control remain
+// available as alternate ways to change the same persisted source rectangle.
 
-import { Spring, Pulse, createLoop, clamp, rubber } from './juice.js';
+import { Spring, Pulse, createLoop, clamp } from './juice.js';
 import { filterFor } from './adjust.js';
 import { canvasContext } from './infrastructure/dom.js';
 import type { Adjustment, Framing } from './domain/types.js';
@@ -19,12 +21,19 @@ const GHOST_ACTIVE = 0.34;    // ...and how much it lifts while you work
 const FRAME_PAD = 56;         // breathing room between frame and stage edge
 const MAX_ZOOM = 8;           // relative to the minimum covering scale
 const SNAP_PX = 7;            // magnetic pull toward a centred framing
-const OVERSHOOT = 140;        // how far past the edge a hard drag can reach
+const MIN_FRAME_PX = 44;       // smallest useful crop box on screen
+const CORNER_HIT = 18;         // forgiving pointer target around corner handles
+const EDGE_HIT = 12;           // forgiving pointer target around edge handles
 
 interface Point { readonly x: number; readonly y: number; }
-interface MutablePoint { x: number; y: number; }
 interface FrameRect { readonly x: number; readonly y: number; readonly w: number; readonly h: number; }
-interface DragState { readonly from: Point; readonly tx: number; readonly ty: number; }
+type FrameHandle = 'move' | 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+interface DragState {
+  readonly pointerId: number;
+  readonly handle: FrameHandle;
+  readonly from: Point;
+  readonly frame: FrameRect;
+}
 interface PinchState { readonly dist: number; readonly mid: Point; }
 
 export interface ViewfinderOptions {
@@ -71,9 +80,12 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
   let morph: Framing | null = null;
   let vw = 1, vh = 1, dpr = 1;
   let dragging: DragState | null = null;
+  let hoverHandle: FrameHandle | null = null;
   const pointers = new Map<number, Point>();
   let snapped = { x: false, y: false };
 
+  const frameX = new Spring(0, { stiffness: 210, damping: 24 });
+  const frameY = new Spring(0, { stiffness: 210, damping: 24 });
   const frameW = new Spring(0, { stiffness: 210, damping: 24 });
   const frameH = new Spring(0, { stiffness: 210, damping: 24 });
   const scale = new Spring(1, { stiffness: 240, damping: 30 });
@@ -82,7 +94,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
   const ghost = new Spring(GHOST_IDLE, { stiffness: 150, damping: 22, precision: 0.001 });
   const guides = new Spring(0, { stiffness: 180, damping: 24, precision: 0.001 });
   const snapPulse = new Pulse(0.5);
-  const springs = [frameW, frameH, scale, tx, ty, ghost, guides];
+  const springs = [frameX, frameY, frameW, frameH, scale, tx, ty, ghost, guides];
 
   const loop = createLoop((dt) => {
     let moving = false;
@@ -93,7 +105,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     // with keeps the cut itself untouched while the frame grows or shrinks —
     // which is what makes switching between true size and fit a pure change of
     // magnification rather than a change of framing.
-    const morphing = !frameW.settled || !frameH.settled;
+    const morphing = !frameX.settled || !frameY.settled || !frameW.settled || !frameH.settled;
     if (!dragging) {
       if (morph) {
         applyFraming(morph);
@@ -110,11 +122,32 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
   // ---- geometry ------------------------------------------------------------
 
   const frameRect = (): FrameRect => ({
-    x: (vw - frameW.v) / 2,
-    y: (vh - frameH.v) / 2,
+    x: frameX.v,
+    y: frameY.v,
     w: frameW.v,
     h: frameH.v,
   });
+
+  function imageRect(): FrameRect {
+    if (!image) return { x: 0, y: 0, w: 0, h: 0 };
+    return {
+      x: tx.v,
+      y: ty.v,
+      w: image.naturalWidth * scale.v,
+      h: image.naturalHeight * scale.v,
+    };
+  }
+
+  function canonicalFrame(): FrameRect {
+    const roomW = Math.max(40, vw - FRAME_PAD * 2);
+    const roomH = Math.max(40, vh - FRAME_PAD * 2);
+    const fits = Math.min(roomW / targetW, roomH / targetH);
+    frameScale = fitMode ? fits : Math.min(1, fits);
+    enlargeable = fits > 1.005;
+    const w = Math.max(8, targetW * frameScale);
+    const h = Math.max(8, targetH * frameScale);
+    return { x: (vw - w) / 2, y: (vh - h) / 2, w, h };
+  }
 
   // Smallest scale at which the image still covers the frame. This is the floor
   // for every zoom: the frame is never allowed to contain empty space.
@@ -149,16 +182,18 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
   // have to imagine. Anything larger than the stage is capped down to fit, and
   // `frameScale` records by how much so the UI can say so.
   function layoutFrame(immediate = false): void {
-    const roomW = Math.max(40, vw - FRAME_PAD * 2);
-    const roomH = Math.max(40, vh - FRAME_PAD * 2);
-    const fits = Math.min(roomW / targetW, roomH / targetH);
-    frameScale = fitMode ? fits : Math.min(1, fits);
-    enlargeable = fits > 1.005;
-    // A sub-pixel frame would be unusable; a handful of pixels still reads.
-    const width = Math.max(8, targetW * frameScale);
-    const height = Math.max(8, targetH * frameScale);
-    if (immediate) { frameW.jump(width); frameH.jump(height); }
-    else { frameW.set(width); frameH.set(height); }
+    const next = canonicalFrame();
+    if (immediate) {
+      frameX.jump(next.x);
+      frameY.jump(next.y);
+      frameW.jump(next.w);
+      frameH.jump(next.h);
+    } else {
+      frameX.set(next.x);
+      frameY.set(next.y);
+      frameW.set(next.w);
+      frameH.set(next.h);
+    }
   }
 
   // Nearest legal framing, with a magnet at dead centre on each axis
@@ -190,6 +225,53 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     tx.set(l.x);
     ty.set(l.y);
     publish();
+  }
+
+  // A frame edit is committed by preserving the source rectangle currently
+  // under it, then sending the frame back to the standard centred output size.
+  // applyFraming() runs throughout that travel, so the crop is visually stable
+  // while the image supplies the compensating zoom and translation.
+  function normalizeFrame(): void {
+    if (!image) return;
+    morph = readFraming();
+    layoutFrame(false);
+    loop.kick();
+  }
+
+  // A new pointer can interrupt the return animation. Freeze the frame where it
+  // is and keep the exact crop represented at that instant; otherwise a quick
+  // second drag would fight springs that are still heading for the centre.
+  function interruptMorph(): void {
+    if (!morph && frameX.settled && frameY.settled && frameW.settled && frameH.settled) return;
+    const framing = image ? readFraming() : null;
+    frameX.jump(frameX.v);
+    frameY.jump(frameY.v);
+    frameW.jump(frameW.v);
+    frameH.jump(frameH.v);
+    morph = null;
+    if (framing) applyFraming(framing);
+  }
+
+  // Wheel, pinch, keyboard and slider gestures operate on the image rather
+  // than the crop box. If one begins while the frame is still returning home,
+  // finish that return immediately while preserving the crop, then apply the
+  // image gesture against the stable canonical frame.
+  function normalizeFrameImmediately(): void {
+    if (!image) return;
+    const home = canonicalFrame();
+    const alreadyHome = !morph
+      && Math.abs(frameX.v - home.x) < 0.01
+      && Math.abs(frameY.v - home.y) < 0.01
+      && Math.abs(frameW.v - home.w) < 0.01
+      && Math.abs(frameH.v - home.h) < 0.01;
+    if (alreadyHome) return;
+    const framing = readFraming();
+    morph = null;
+    frameX.jump(home.x);
+    frameY.jump(home.y);
+    frameW.jump(home.w);
+    frameH.jump(home.h);
+    applyFraming(framing);
   }
 
   function publish(): void {
@@ -284,9 +366,9 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
       ctx.stroke();
     }
 
-    // The frame edge itself: hairline, plus corner brackets that read as a
-    // viewfinder rather than a selection marquee. Each is drawn twice — a dark
-    // under-stroke first — so the frame stays legible on pale images too.
+    // The frame edge itself: hairline, corner brackets, and short midpoint
+    // grips. They are real controls now, so the same crop language that invites
+    // the gesture is also the thing the pointer can actually move.
     const arm = Math.min(26, f.w / 5, f.h / 5);
     const corners = () => {
       ctx.beginPath();
@@ -316,6 +398,39 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     ctx.lineWidth = 3;
     corners();
 
+    const mx = f.x + f.w / 2;
+    const my = f.y + f.h / 2;
+    const edgeArm = Math.min(24, Math.max(12, Math.min(f.w, f.h) / 5));
+    const edgeBars = () => {
+      ctx.beginPath();
+      ctx.moveTo(mx - edgeArm / 2, f.y); ctx.lineTo(mx + edgeArm / 2, f.y);
+      ctx.moveTo(mx - edgeArm / 2, f.y + f.h); ctx.lineTo(mx + edgeArm / 2, f.y + f.h);
+      ctx.moveTo(f.x, my - edgeArm / 2); ctx.lineTo(f.x, my + edgeArm / 2);
+      ctx.moveTo(f.x + f.w, my - edgeArm / 2); ctx.lineTo(f.x + f.w, my + edgeArm / 2);
+      ctx.stroke();
+    };
+
+    ctx.strokeStyle = 'rgba(0,0,0,.45)';
+    ctx.lineWidth = 5;
+    edgeBars();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    edgeBars();
+
+    // A tiny accent lift confirms which part of the frame is live without
+    // turning the crop into a selection marquee.
+    const active = dragging?.handle ?? hoverHandle;
+    if (active && active !== 'move') {
+      ctx.strokeStyle = 'rgba(186, 88, 44, .95)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      if (active.includes('n')) { ctx.moveTo(f.x, f.y); ctx.lineTo(f.x + f.w, f.y); }
+      if (active.includes('s')) { ctx.moveTo(f.x, f.y + f.h); ctx.lineTo(f.x + f.w, f.y + f.h); }
+      if (active.includes('w')) { ctx.moveTo(f.x, f.y); ctx.lineTo(f.x, f.y + f.h); }
+      if (active.includes('e')) { ctx.moveTo(f.x + f.w, f.y); ctx.lineTo(f.x + f.w, f.y + f.h); }
+      ctx.stroke();
+    }
+
     // Snap acknowledgement: a crosshair that blooms and dies.
     const p = snapPulse.value;
     if (p > 0.01) {
@@ -323,7 +438,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
       // other selection in the app uses.
       ctx.strokeStyle = `rgba(186, 88, 44, ${0.9 * p})`;
       ctx.lineWidth = 1;
-      const mx = f.x + f.w / 2, my = f.y + f.h / 2, r = 14 + 22 * (1 - p);
+      const r = 14 + 22 * (1 - p);
       ctx.beginPath();
       if (snapped.x) { ctx.moveTo(mx, my - r); ctx.lineTo(mx, my + r); }
       if (snapped.y) { ctx.moveTo(mx - r, my); ctx.lineTo(mx + r, my); }
@@ -351,17 +466,153 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     loop.kick();
   }
 
+  function contains(p: Point, r: FrameRect, pad = 0): boolean {
+    return p.x >= r.x - pad && p.x <= r.x + r.w + pad
+      && p.y >= r.y - pad && p.y <= r.y + r.h + pad;
+  }
+
+  function hitTest(p: Point): FrameHandle | null {
+    const f = frameRect();
+    const left = Math.abs(p.x - f.x) <= CORNER_HIT;
+    const right = Math.abs(p.x - (f.x + f.w)) <= CORNER_HIT;
+    const top = Math.abs(p.y - f.y) <= CORNER_HIT;
+    const bottom = Math.abs(p.y - (f.y + f.h)) <= CORNER_HIT;
+    const across = p.x >= f.x - CORNER_HIT && p.x <= f.x + f.w + CORNER_HIT;
+    const down = p.y >= f.y - CORNER_HIT && p.y <= f.y + f.h + CORNER_HIT;
+
+    if (left && top) return 'nw';
+    if (right && top) return 'ne';
+    if (right && bottom) return 'se';
+    if (left && bottom) return 'sw';
+    if (top && across && Math.abs(p.y - f.y) <= EDGE_HIT) return 'n';
+    if (right && down && Math.abs(p.x - (f.x + f.w)) <= EDGE_HIT) return 'e';
+    if (bottom && across && Math.abs(p.y - (f.y + f.h)) <= EDGE_HIT) return 's';
+    if (left && down && Math.abs(p.x - f.x) <= EDGE_HIT) return 'w';
+    return contains(p, f) ? 'move' : null;
+  }
+
+  function cursorFor(handle: FrameHandle | null): string {
+    if (!handle) return 'default';
+    if (handle === 'move') return 'move';
+    if (handle === 'n' || handle === 's') return 'ns-resize';
+    if (handle === 'e' || handle === 'w') return 'ew-resize';
+    if (handle === 'nw' || handle === 'se') return 'nwse-resize';
+    return 'nesw-resize';
+  }
+
+  function setFrame(next: FrameRect): void {
+    frameX.jump(next.x);
+    frameY.jump(next.y);
+    frameW.jump(next.w);
+    frameH.jump(next.h);
+    publish();
+    loop.kick();
+  }
+
+  function legalFramePosition(x: number, y: number, w: number, h: number): Point {
+    const im = imageRect();
+    const maxX = im.x + im.w - w;
+    const maxY = im.y + im.h - h;
+    let nextX = clamp(x, im.x, Math.max(im.x, maxX));
+    let nextY = clamp(y, im.y, Math.max(im.y, maxY));
+    const centreX = im.x + (im.w - w) / 2;
+    const centreY = im.y + (im.h - h) / 2;
+    const hitX = Math.abs(nextX - centreX) < SNAP_PX;
+    const hitY = Math.abs(nextY - centreY) < SNAP_PX;
+    if (hitX) nextX = centreX;
+    if (hitY) nextY = centreY;
+    if ((hitX && !snapped.x) || (hitY && !snapped.y)) snapPulse.fire();
+    snapped = { x: hitX, y: hitY };
+    return { x: nextX, y: nextY };
+  }
+
+  function resizeFrame(start: FrameRect, handle: Exclude<FrameHandle, 'move'>, p: Point): FrameRect {
+    const im = imageRect();
+    const right = im.x + im.w;
+    const bottom = im.y + im.h;
+    const ratio = start.w / start.h || aspect;
+    const minShort = Math.max(8, Math.min(MIN_FRAME_PX, Math.min(start.w, start.h) * 0.6));
+    const visualMinW = Math.max(minShort, minShort * ratio);
+    // Handle-resizing is another zoom route, so it honours the same ceiling as
+    // wheel/pinch/slider zoom. At 400%, for example, the box may shrink by only
+    // another half before it reaches the shared 800% maximum.
+    const currentMinScale = image
+      ? Math.max(start.w / image.naturalWidth, start.h / image.naturalHeight)
+      : 1;
+    const currentZoom = currentMinScale > 0 ? scale.v / currentMinScale : 1;
+    const zoomMinW = start.w * currentZoom / MAX_ZOOM;
+    const minW = Math.max(visualMinW, zoomMinW);
+
+    if (handle.length === 2) {
+      const west = handle.includes('w');
+      const north = handle.includes('n');
+      const ax = west ? start.x + start.w : start.x;
+      const ay = north ? start.y + start.h : start.y;
+      const fromX = Math.max(0, west ? ax - p.x : p.x - ax);
+      const fromY = Math.max(0, north ? ay - p.y : p.y - ay) * ratio;
+      const width = Math.abs(fromX - start.w) >= Math.abs(fromY - start.w) ? fromX : fromY;
+      const maxHorizontal = west ? ax - im.x : right - ax;
+      const maxVertical = north ? ay - im.y : bottom - ay;
+      const maxW = Math.max(8, Math.min(maxHorizontal, maxVertical * ratio));
+      const w = clamp(width, Math.min(minW, maxW), maxW);
+      const h = w / ratio;
+      return {
+        x: west ? ax - w : ax,
+        y: north ? ay - h : ay,
+        w,
+        h,
+      };
+    }
+
+    if (handle === 'e' || handle === 'w') {
+      const west = handle === 'w';
+      const ax = west ? start.x + start.w : start.x;
+      const cy = start.y + start.h / 2;
+      const desired = Math.max(0, west ? ax - p.x : p.x - ax);
+      const maxHorizontal = west ? ax - im.x : right - ax;
+      const maxVertical = 2 * Math.min(cy - im.y, bottom - cy);
+      const maxW = Math.max(8, Math.min(maxHorizontal, maxVertical * ratio));
+      const w = clamp(desired, Math.min(minW, maxW), maxW);
+      const h = w / ratio;
+      return { x: west ? ax - w : ax, y: cy - h / 2, w, h };
+    }
+
+    const north = handle === 'n';
+    const ay = north ? start.y + start.h : start.y;
+    const cx = start.x + start.w / 2;
+    const desiredH = Math.max(0, north ? ay - p.y : p.y - ay);
+    const maxVertical = north ? ay - im.y : bottom - ay;
+    const maxHorizontal = 2 * Math.min(cx - im.x, right - cx);
+    const maxH = Math.max(8, Math.min(maxVertical, maxHorizontal / ratio));
+    const minH = minW / ratio;
+    const h = clamp(desiredH, Math.min(minH, maxH), maxH);
+    const w = h * ratio;
+    return { x: cx - w / 2, y: north ? ay - h : ay, w, h };
+  }
+
   function onPointerDown(e: PointerEvent): void {
     if (!image) return;
-    canvas.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, localPoint(e));
-    if (pointers.size === 1) {
-      const p = localPoint(e);
-      dragging = { from: p, tx: tx.v, ty: ty.v };
-      canvas.style.cursor = 'grabbing';
+    const p = localPoint(e);
+
+    // The second finger may land outside the frame; once a gesture is already
+    // under way it still belongs to that gesture.
+    if (pointers.size === 0) {
+      const handle = hitTest(p);
+      if (!handle) return;
+      interruptMorph();
+      dragging = { pointerId: e.pointerId, handle, from: p, frame: frameRect() };
+      hoverHandle = handle;
+      canvas.style.cursor = handle === 'move' ? 'grabbing' : cursorFor(handle);
       beginInteraction();
-    } else if (pointers.size === 2) {
-      dragging = null;         // hand off to pinch
+    }
+
+    canvas.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, p);
+    if (pointers.size === 2) {
+      // Pinch remains a direct image gesture. Preserve any crop movement the
+      // first finger made, normalize it instantly, then hand off to zoom/pan.
+      normalizeFrameImmediately();
+      dragging = null;
       startPinch();
     }
   }
@@ -378,7 +629,18 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
 
   function onPointerMove(e: PointerEvent): void {
     if (!image) return;
+    const point = localPoint(e);
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, localPoint(e));
+
+    if (pointers.size === 0) {
+      const next = hitTest(point);
+      if (next !== hoverHandle) {
+        hoverHandle = next;
+        canvas.style.cursor = cursorFor(next);
+        loop.kick();
+      }
+      return;
+    }
 
     if (pinch && pointers.size >= 2) {
       const [a, b] = [...pointers.values()];
@@ -392,17 +654,21 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
       return;
     }
 
-    if (!dragging) return;
-    const p = localPoint(e);
-    // Legal position first, then let the excess through with resistance, so
-    // pulling past the edge feels like stretching rather than hitting a wall.
-    const wantX = dragging.tx + (p.x - dragging.from.x);
-    const wantY = dragging.ty + (p.y - dragging.from.y);
-    const l = legal(wantX, wantY);
-    tx.jump(l.x + rubber(wantX - l.x, OVERSHOOT));
-    ty.jump(l.y + rubber(wantY - l.y, OVERSHOOT));
-    publish();
-    loop.kick();
+    if (!dragging || dragging.pointerId !== e.pointerId) return;
+    const dx = point.x - dragging.from.x;
+    const dy = point.y - dragging.from.y;
+    if (dragging.handle === 'move') {
+      const l = legalFramePosition(
+        dragging.frame.x + dx,
+        dragging.frame.y + dy,
+        dragging.frame.w,
+        dragging.frame.h,
+      );
+      setFrame({ ...dragging.frame, x: l.x, y: l.y });
+    } else {
+      snapped = { x: false, y: false };
+      setFrame(resizeFrame(dragging.frame, dragging.handle, point));
+    }
   }
 
   function panBy(dx: number, dy: number): void {
@@ -412,12 +678,15 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
   }
 
   function onPointerUp(e: PointerEvent): void {
+    const frameEdited = !!dragging;
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
     if (pointers.size === 0) {
       dragging = null;
-      canvas.style.cursor = image ? 'grab' : 'default';
-      settle();            // ...and this is the ease back home
+      hoverHandle = null;
+      canvas.style.cursor = 'default';
+      if (frameEdited) normalizeFrame();
+      else settle();
       endInteraction();
     }
   }
@@ -445,6 +714,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
   function onWheel(e: WheelEvent): void {
     if (!image) return;
     e.preventDefault();
+    normalizeFrameImmediately();
     const p = localPoint(e);
     // A wheel reports in lines or pages as readily as in pixels, and a notch
     // that means 3 lines on one machine and 100px on another is why zoom used to
@@ -489,6 +759,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
 
   function fill(): void {
     if (!image) return;
+    normalizeFrameImmediately();
     applyFraming(null);
     snapPulse.fire();
     loop.kick();
@@ -497,7 +768,8 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
   return {
     setImage(next: HTMLImageElement | null, framing?: Framing | null): void {
       image = next;
-      canvas.style.cursor = next ? 'grab' : 'default';
+      hoverHandle = null;
+      canvas.style.cursor = 'default';
       if (next) {
         applyFraming(framing);
         // An image can arrive while the frame is still travelling toward a new
@@ -506,7 +778,9 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
         // on its way somewhere else bakes in the magnification it happened to
         // have at that instant, and the picture lands cropped. Hand the crop to
         // the morph so it is re-derived until the frame actually arrives.
-        if (!frameW.settled || !frameH.settled) morph = readFraming();
+        if (!frameX.settled || !frameY.settled || !frameW.settled || !frameH.settled) {
+          morph = readFraming();
+        }
       }
       loop.kick();
     },
@@ -554,6 +828,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     // point under, so the frame's own centre holds still.
     setZoom(zoom: number): void {
       if (!image) return;
+      normalizeFrameImmediately();
       const min = minScale();
       const from = scale.v;
       const to = clamp(zoom, 1, MAX_ZOOM) * min;
@@ -568,6 +843,7 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
     },
     nudge(dx: number, dy: number): void {
       if (!image) return;
+      normalizeFrameImmediately();
       beginInteraction();
       panBy(dx, dy);
       settle();
@@ -576,6 +852,8 @@ export function createViewfinder({ canvas, stage, onFrameChange }: ViewfinderOpt
       loop.kick();
     },
     zoomBy(factor: number): void {
+      if (!image) return;
+      normalizeFrameImmediately();
       beginInteraction();
       zoomAt(factor, vw / 2, vh / 2);
       if (wheelIdle !== null) clearTimeout(wheelIdle);

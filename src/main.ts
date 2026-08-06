@@ -195,7 +195,7 @@ function setMode(next: Mode): void {
   mode = next;
   syncStageChrome();
   announce(next === 'crop'
-    ? 'Crop. Drag to move the image under the frame'
+    ? 'Crop. Move or resize the frame, then it recentres with your crop'
     : 'Adjust. The crop is left exactly as it was');
   if (next === 'crop') canvas.focus();
 }
