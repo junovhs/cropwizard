@@ -11,7 +11,7 @@
 // the crop always has spatial context. Wheel, pinch and the zoom control remain
 // available as alternate ways to change the same persisted source rectangle.
 
-import { Spring, Pulse, createLoop, clamp } from './juice.js';
+import { Spring, createLoop, clamp } from './juice.js';
 import { CAN_FILTER, applyAdjustment, filterFor, isNeutral } from './adjust.js';
 import { resizeFree } from './application/freeform.js';
 import { frameFit, type FrameView } from './application/frame-view.js';
@@ -45,7 +45,6 @@ const MIN_ZOOM = 1;
 // finger — the export does its own pass at full size.
 const BAKE_DELAY = 90;
 const BAKE_MAX_PX = 2600;
-const SNAP_PX = 7;            // magnetic pull toward a centred framing
 const MIN_FRAME_PX = 44;       // smallest useful crop box on screen
 
 export type { FrameView };
@@ -132,7 +131,6 @@ export function createViewfinder(
   let dragging: DragState | null = null;
   let hoverHandle: FrameHandle | null = null;
   const pointers = new Map<number, Point>();
-  let snapped = { x: false, y: false };
 
   const frameX = new Spring(0, { stiffness: 210, damping: 24 });
   const frameY = new Spring(0, { stiffness: 210, damping: 24 });
@@ -143,13 +141,11 @@ export function createViewfinder(
   const ty = new Spring(0, { stiffness: 240, damping: 30 });
   const ghost = new Spring(GHOST_IDLE, { stiffness: 150, damping: 22, precision: 0.001 });
   const guides = new Spring(0, { stiffness: 180, damping: 24, precision: 0.001 });
-  const snapPulse = new Pulse(0.5);
   const springs = [frameX, frameY, frameW, frameH, scale, tx, ty, ghost, guides];
 
   const loop = createLoop((dt) => {
     let moving = false;
     for (const s of springs) moving = s.step(dt) || moving;
-    moving = snapPulse.step(dt) || moving;
     // The frame's morph changes both what counts as legal and what the same
     // crop maps to on screen. Re-deriving the transform from the crop we started
     // with keeps the cut itself untouched while the frame grows or shrinks —
@@ -235,16 +231,6 @@ export function createViewfinder(
     };
   }
 
-  function centred(): Point {
-    const current = image;
-    if (!current) return { x: vw / 2, y: vh / 2 };
-    const f = frameRect();
-    return {
-      x: f.x + f.w / 2 - (current.naturalWidth * scale.v) / 2,
-      y: f.y + f.h / 2 - (current.naturalHeight * scale.v) / 2,
-    };
-  }
-
   // True size by default: a 32x64 target is a 32x64 rectangle on screen, so the
   // smallness of a small crop is a fact you can see rather than a number you
   // have to imagine. Anything larger than the stage is capped down to fit, and
@@ -264,20 +250,14 @@ export function createViewfinder(
     }
   }
 
-  // Nearest legal framing, with a magnet at dead centre on each axis
-  // independently — so you can be centred horizontally and free vertically.
+  // Nearest legal framing. Clamped only: the picture may not be dragged so far
+  // that the frame would contain anything but picture. There is deliberately no
+  // magnet at centre — a pull the pointer has to fight is a pull that has to
+  // earn its keep, and dead centre is already reachable by double-click (which
+  // fills) and preserved by every zoom, which works about the frame's centre.
   function legal(x: number, y: number): Point {
     const b = bounds();
-    const c = centred();
-    let lx = clamp(x, b.x[0], b.x[1]);
-    let ly = clamp(y, b.y[0], b.y[1]);
-    const hitX = Math.abs(lx - c.x) < SNAP_PX && c.x >= b.x[0] && c.x <= b.x[1];
-    const hitY = Math.abs(ly - c.y) < SNAP_PX && c.y >= b.y[0] && c.y <= b.y[1];
-    if (hitX) lx = c.x;
-    if (hitY) ly = c.y;
-    if ((hitX && !snapped.x) || (hitY && !snapped.y)) snapPulse.fire();
-    snapped = { x: hitX, y: hitY };
-    return { x: lx, y: ly };
+    return { x: clamp(x, b.x[0], b.x[1]), y: clamp(y, b.y[0], b.y[1]) };
   }
 
   // Send the transform to its resting place. Called on pointer release, after a
@@ -542,20 +522,6 @@ export function createViewfinder(
       if (active.includes('e')) { ctx.moveTo(f.x + f.w, f.y); ctx.lineTo(f.x + f.w, f.y + f.h); }
       ctx.stroke();
     }
-
-    // Snap acknowledgement: a crosshair that blooms and dies.
-    const p = snapPulse.value;
-    if (p > 0.01) {
-      // The product accent, so a snap is acknowledged in the same colour every
-      // other selection in the app uses.
-      ctx.strokeStyle = `rgba(186, 88, 44, ${0.9 * p})`;
-      ctx.lineWidth = 1;
-      const r = 14 + 22 * (1 - p);
-      ctx.beginPath();
-      if (snapped.x) { ctx.moveTo(mx, my - r); ctx.lineTo(mx, my + r); }
-      if (snapped.y) { ctx.moveTo(mx - r, my); ctx.lineTo(mx + r, my); }
-      ctx.stroke();
-    }
   }
 
   // ---- interaction ---------------------------------------------------------
@@ -574,7 +540,6 @@ export function createViewfinder(
   function endInteraction(): void {
     ghost.set(GHOST_IDLE);
     guides.set(0);
-    snapped = { x: false, y: false };
     loop.kick();
   }
 
@@ -600,21 +565,15 @@ export function createViewfinder(
     loop.kick();
   }
 
+  // The frame's own travel, clamped to the picture and nothing more. Same
+  // reasoning as `legal`: the boundary is a fact about what a crop is, a magnet
+  // is only a preference about where you probably meant to stop.
   function legalFramePosition(x: number, y: number, w: number, h: number): Point {
     const im = imageRect();
-    const maxX = im.x + im.w - w;
-    const maxY = im.y + im.h - h;
-    let nextX = clamp(x, im.x, Math.max(im.x, maxX));
-    let nextY = clamp(y, im.y, Math.max(im.y, maxY));
-    const centreX = im.x + (im.w - w) / 2;
-    const centreY = im.y + (im.h - h) / 2;
-    const hitX = Math.abs(nextX - centreX) < SNAP_PX;
-    const hitY = Math.abs(nextY - centreY) < SNAP_PX;
-    if (hitX) nextX = centreX;
-    if (hitY) nextY = centreY;
-    if ((hitX && !snapped.x) || (hitY && !snapped.y)) snapPulse.fire();
-    snapped = { x: hitX, y: hitY };
-    return { x: nextX, y: nextY };
+    return {
+      x: clamp(x, im.x, Math.max(im.x, im.x + im.w - w)),
+      y: clamp(y, im.y, Math.max(im.y, im.y + im.h - h)),
+    };
   }
 
   function resizeFrame(start: FrameRect, handle: Exclude<FrameHandle, 'move'>, p: Point): FrameRect {
@@ -788,7 +747,6 @@ export function createViewfinder(
       );
       setFrame({ ...dragging.frame, x: l.x, y: l.y });
     } else {
-      snapped = { x: false, y: false };
       setFrame(resizeFrame(dragging.frame, dragging.handle, point));
     }
   }
@@ -891,7 +849,6 @@ export function createViewfinder(
     if (!image) return;
     normalizeFrameImmediately();
     applyFraming(null);
-    snapPulse.fire();
     loop.kick();
   }
 
