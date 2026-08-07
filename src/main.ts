@@ -8,6 +8,7 @@ import { scaledTarget } from './export.js';
 import { createAdjustPanel, neutral } from './adjust.js';
 import { paintIcons } from './icons.js';
 import { createExportPanel, type ExportPanelController } from './presentation/export-panel.js';
+import { createConvertPanel, type ConvertPanelController } from './presentation/convert-panel.js';
 import { acceptFrame, fitFrameToTarget, suggestFrame, targetKey, useWholeImage, wholeFrame } from './application/framing.js';
 import {
   FREEFORM_LABEL, commitFreeform, enterFreeform, exitFreeform, releaseFreeform,
@@ -28,6 +29,7 @@ const stage = $<HTMLElement>('#stage');
 const fileInput = $<HTMLInputElement>('#file');
 
 let exportPanel: ExportPanelController | null = null;
+let convertPanel: ConvertPanelController | null = null;
 
 // Where the app goes back to when Freeform is turned off and there is no preset
 // to restore — the size it booted with, before anything had been chosen.
@@ -163,13 +165,18 @@ function showFileIdentity(item: CropItem): void {
 // previously a flag laid over the other two. That leaked: the queue appeared
 // before there was a queue, stayed on screen after you had left it, and leaving
 // destroyed it. A room you are either in or not in cannot do any of that.
-type Room = 'crop' | 'adjust' | 'batch';
+// Convert joined them later and belongs by the same test: it is a thing you
+// came here to do to an image, not a setting on the way out. The export panel
+// changes the format of a crop; Convert changes the format of a file and
+// touches nothing else about it.
+type Room = 'crop' | 'adjust' | 'batch' | 'convert';
 let room: Room = 'crop';
 let hasImage = false;
 
-// The framing surface belongs to two of the three rooms: Batch is Crop with a
+// The framing surface belongs to two of the four rooms: Batch is Crop with a
 // queue attached, so the frame, the zoom and the readouts are all still the job.
-const framingRoom = (): boolean => room !== 'adjust';
+// Adjust and Convert both leave the framing alone, so neither shows its chrome.
+const framingRoom = (): boolean => room !== 'adjust' && room !== 'convert';
 
 // One place decides what is on the stage, because visibility depends on both
 // facts at once — whether there is an image, and which room you are in.
@@ -182,7 +189,9 @@ function syncStageChrome(): void {
   // exception — it is a door to somewhere else, and it opens with no picture.
   $<HTMLButtonElement>('#modeCrop').disabled = !hasImage;
   $<HTMLButtonElement>('#modeAdjust').disabled = !hasImage;
-  $('#adjust').hidden = !hasImage || framing;
+  $<HTMLButtonElement>('#modeConvert').disabled = !hasImage;
+  $('#adjust').hidden = !hasImage || room !== 'adjust';
+  $('#convert').hidden = !hasImage || room !== 'convert';
   // The crop readouts describe a framing decision, so they are only true while
   // that is the decision being made.
   $('#readout').hidden = !hasImage || !framing;
@@ -198,7 +207,9 @@ function syncStageChrome(): void {
   $('#freeform').hidden = !hasImage || !framing || batching;
   $('#modeCrop').setAttribute('aria-selected', String(room === 'crop'));
   $('#modeAdjust').setAttribute('aria-selected', String(room === 'adjust'));
+  $('#modeConvert').setAttribute('aria-selected', String(room === 'convert'));
   $('#modeBatch').setAttribute('aria-selected', String(batching));
+  if (room === 'convert') convertPanel?.sync();
   syncFramingChrome();
 }
 
@@ -261,6 +272,7 @@ const ROOM_SAID: Readonly<Record<Room, string>> = {
   crop: 'Crop. Move or resize the frame, then it recentres with your crop',
   adjust: 'Adjust. The crop is left exactly as it was',
   batch: 'Batch. Frame each image, then keep it',
+  convert: 'Convert. Change the format and keep every pixel',
 };
 
 /**
@@ -908,6 +920,11 @@ exportPanel = createExportPanel({
   onScaleChange: updateReadout,
 });
 
+convertPanel = createConvertPanel({
+  getState: () => store.get(),
+  announce,
+});
+
 // ---- history ---------------------------------------------------------------
 
 // Undo restores a whole past state, so the screen has to be rebuilt from it
@@ -1069,6 +1086,7 @@ $('#coach').addEventListener('mousedown', (event) => {
 });
 $('#modeCrop').addEventListener('click', () => goTo('crop'));
 $('#modeAdjust').addEventListener('click', () => goTo('adjust'));
+$('#modeConvert').addEventListener('click', () => goTo('convert'));
 $('#modeBatch').addEventListener('click', () => goTo('batch'));
 
 // ---- boot ------------------------------------------------------------------

@@ -46,6 +46,15 @@
         <span class="icon" data-icon="sliders"></span>
         <span class="nav-label">Adjust</span>
       </button>
+      <!-- Convert is the job that does nothing to the picture. It sits with the
+           others because it is a thing you came here to do, not a setting on
+           the way out: the export panel changes the format of a crop, this
+           changes the format of a file. -->
+      <button id="modeConvert" class="nav-item" type="button" role="tab"
+        aria-selected="false" aria-controls="convert">
+        <span class="icon" data-icon="swap"></span>
+        <span class="nav-label">Convert</span>
+      </button>
       <button id="modeBatch" class="nav-item" type="button" role="tab"
         aria-selected="false" aria-controls="strip">
         <span class="icon" data-icon="layers"></span>
@@ -124,6 +133,40 @@
           </div>
           <div id="adjustRows" class="adjust-rows"></div>
           <p class="adjust-keep">Your crop is untouched while you are in here.</p>
+        </div>
+      </div>
+
+      <!-- Convert takes the same corner as Adjust: the picture stays on the
+           canvas, because seeing what you are about to re-encode is the point. -->
+      <div id="convert" class="adjust convert" role="tabpanel" aria-labelledby="modeConvert" hidden>
+        <div class="adjust-inner">
+          <div class="adjust-head">
+            <span class="icon adjust-mark" data-icon="swap"></span>
+            <h2>Convert</h2>
+          </div>
+
+          <p id="convertSource" class="convert-source">Nothing loaded.</p>
+
+          <div id="convertFormatGroup" class="segmented" role="radiogroup" aria-label="Convert to">
+            <button type="button" role="radio" data-format="webp" aria-checked="true">WebP</button>
+            <button type="button" role="radio" data-format="png" aria-checked="false">PNG</button>
+            <button type="button" role="radio" data-format="jpeg" aria-checked="false">JPEG</button>
+          </div>
+
+          <div id="convertQualityRow" class="convert-row">
+            <label for="convertQuality">Quality</label>
+            <input id="convertQuality" type="range" min="10" max="100" step="1" value="86">
+            <output id="convertQualityValue" for="convertQuality">86</output>
+          </div>
+
+          <p id="convertResult" class="convert-result"></p>
+
+          <button id="convertGo" class="primary convert-go" type="button" disabled>
+            <span id="convertFill" class="export-fill"></span>
+            <span id="convertGoLabel" class="convert-go-label">Convert</span>
+          </button>
+
+          <p id="convertNote" class="adjust-keep">Pixels are left exactly as they are.</p>
         </div>
       </div>
 

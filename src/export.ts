@@ -179,7 +179,7 @@ export async function encode(
   return ours && ours.size < blob.size ? ours : blob;
 }
 
-const sanitize = (value: string): string => value.replace(/[^\p{L}\p{N}._-]+/gu, '-')
+export const sanitize = (value: string): string => value.replace(/[^\p{L}\p{N}._-]+/gu, '-')
   .replace(/-{2,}/g, '-')
   .replace(/^[.-]+|[.-]+$/g, '') || 'image';
 
@@ -203,7 +203,7 @@ export function expandName(template: string, ctx: FilenameContext): string {
   return `${sanitize(body)}.${ctx.ext}`;
 }
 
-function unique(names: readonly string[]): string[] {
+export function unique(names: readonly string[]): string[] {
   const seen = new Map<string, number>();
   return names.map((name) => {
     const key = name.toLowerCase();
