@@ -2,6 +2,8 @@
 
 A dependency-light browser image cropper written in strict TypeScript. The runtime remains framework-free and uses native canvas, DOM, Blob, and File APIs.
 
+For who this is for, what it deliberately is not, and the bar a feature has to clear, see [docs/product-philosophy.md](docs/product-philosophy.md).
+
 ## Commands
 
 ```bash
