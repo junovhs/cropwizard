@@ -217,6 +217,233 @@ button.ghost:hover:not(:disabled) { background: oklch(0.55 0.02 70 / 0.07); colo
 }
 .brand-word b { font-weight: 600; color: var(--ink); }
 .brand-word i { font-style: normal; font-weight: 600; color: var(--accent); }
+.docs-open {
+  min-height: 28px;
+  margin-left: auto;
+  padding: 0 9px;
+  border-color: var(--accent);
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px oklch(0.52 0.145 43 / 0.20);
+}
+.docs-open:hover:not(:disabled) {
+  border-color: var(--accent-2);
+  background: var(--accent-2);
+  color: #fff;
+}
+
+/* ---- documentation ----
+   Like Mashu's docs, this is a view over the live app rather than a new page.
+   It gets the viewport and the scrollbar; the workspace underneath does not
+   remount, reload, or lose its image. */
+
+.docs {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  background: var(--bg);
+  color: var(--ink-2);
+}
+.docs[hidden] { display: none; }
+
+.docs-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 52px;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in oklch, var(--bg) 94%, transparent);
+  backdrop-filter: blur(10px);
+}
+.docs-back {
+  min-height: 30px;
+  margin-right: 7px;
+  padding: 0 10px;
+  border-color: var(--line);
+  background: transparent;
+  color: var(--ink-3);
+  font: 11px/1 var(--font-mono);
+}
+.docs-back:hover:not(:disabled) { border-color: var(--edge); color: var(--ink); }
+.docs-brand {
+  font-family: var(--font-disp);
+  font-size: 16px;
+  line-height: 1;
+}
+.docs-brand b { color: var(--ink); font-weight: 600; }
+.docs-brand i { color: var(--accent); font-style: normal; font-weight: 600; }
+.docs-slash { color: var(--ink-4); }
+.docs-page { color: var(--ink-3); font-size: 12px; }
+
+.docs-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  align-items: start;
+  gap: 58px;
+  width: min(100% - 56px, 1000px);
+  margin: 0 auto;
+  /* Enough tail room for the final section to reach the reading line and
+     become the active sidebar item, rather than getting stranded at the foot
+     of the viewport. */
+  padding-bottom: 50vh;
+}
+.docs-sidebar {
+  position: sticky;
+  top: 72px;
+  max-height: calc(100vh - 92px);
+  overflow: hidden auto;
+  padding: 34px 0;
+}
+.docs-sidebar-label {
+  display: block;
+  margin: 0 0 10px 10px;
+  color: var(--ink-4);
+  font: 600 9.5px/1.4 var(--font-mono);
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+.docs-nav { display: grid; gap: 1px; }
+.docs-nav a {
+  padding: 5px 10px;
+  border-left: 2px solid transparent;
+  border-radius: 6px;
+  color: var(--ink-3);
+  font-size: 12.5px;
+  line-height: 1.35;
+  text-decoration: none;
+}
+.docs-nav a:hover { background: var(--bg-2); color: var(--ink); }
+.docs-nav a.active {
+  border-left-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent-2);
+  font-weight: 600;
+}
+
+.docs-main { min-width: 0; padding-top: 42px; }
+.docs-intro { margin-bottom: 52px; }
+.docs-kicker {
+  margin: 0 0 10px;
+  color: var(--accent);
+  font: 600 10px/1.4 var(--font-mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.docs-intro h1 {
+  margin: 0 0 14px;
+  color: var(--ink);
+  font: 600 clamp(32px, 5vw, 46px)/1.05 var(--font-disp);
+  letter-spacing: -.03em;
+}
+.docs-intro > p:last-child {
+  max-width: 680px;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 16px;
+  line-height: 1.7;
+}
+.docs-section {
+  margin-bottom: 52px;
+  scroll-margin-top: 72px;
+}
+.docs-section h2 {
+  margin: 0 0 15px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink);
+  font: 600 21px/1.25 var(--font-disp);
+}
+.docs-section p,
+.docs-section li,
+.docs-shortcuts dd {
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.75;
+}
+.docs-section p { margin: 0 0 12px; }
+.docs-section p:last-child { margin-bottom: 0; }
+.docs-section ol,
+.docs-section ul { margin: 0 0 14px; padding-left: 20px; }
+.docs-section li + li { margin-top: 5px; }
+.docs-section strong { color: var(--ink); }
+.docs-section code,
+.docs-section kbd {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  font: 11.5px/1.4 var(--font-mono);
+}
+.docs-callout {
+  margin-top: 18px;
+  padding: 12px 15px;
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 7px;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.docs-shortcuts { display: grid; gap: 0; margin: 0; }
+.docs-shortcuts > div {
+  display: grid;
+  grid-template-columns: minmax(150px, .45fr) 1fr;
+  gap: 20px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.docs-shortcuts dt,
+.docs-shortcuts dd { margin: 0; }
+
+@media (max-width: 720px) {
+  .docs-bar { height: 56px; padding: 0 16px; }
+  .docs-brand, .docs-slash { display: none; }
+  .docs-layout {
+    display: block;
+    width: min(100% - 36px, 680px);
+    padding-bottom: 45vh;
+  }
+  .docs-sidebar {
+    position: sticky;
+    top: 56px;
+    z-index: 1;
+    max-height: none;
+    margin: 0 -18px;
+    padding: 10px 18px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .docs-sidebar::-webkit-scrollbar { display: none; }
+  .docs-sidebar-label { display: none; }
+  .docs-nav { display: flex; width: max-content; gap: 3px; }
+  .docs-nav a {
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .docs-nav a.active { border-bottom-color: var(--accent); }
+  .docs-main { padding-top: 30px; }
+  .docs-intro { margin-bottom: 42px; }
+  .docs-shortcuts > div { grid-template-columns: 1fr; gap: 5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs { scroll-behavior: auto; }
+}
 
 /* ---- left rail ---- */
 
@@ -1648,6 +1875,9 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
     padding-left: 14px;
   }
   .brand-word { font-size: 18px; }
+  /* The top bar shares this row and owns its right edge. Keep Docs beside the
+     wordmark so it never sits underneath the size button. */
+  .docs-open { margin-left: 8px; }
 
   .topbar {
     grid-area: brand;

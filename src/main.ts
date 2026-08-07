@@ -977,11 +977,97 @@ const openPicker = () => { fileInput.value = ''; fileInput.click(); };
 $('#emptyAdd').onclick = openPicker;
 fileInput.onchange = () => { if (fileInput.files) void intake(fileInput.files); };
 
+// Docs is a full-screen view over the live workspace. Nothing behind it is
+// rebuilt, so closing it returns to the same image, room, crop, and history.
+const docs = $('#docs');
+const docsOpen = $<HTMLButtonElement>('#docsOpen');
+const docsClose = $<HTMLButtonElement>('#docsClose');
+const docsLinks = $$<HTMLAnchorElement>('.docs-nav a');
+const docsBackground = $$<HTMLElement>('body > :not(#docs):not(script)');
+const docsReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+let docsReturnFocus: HTMLElement | null = null;
+
+function openDocs(): void {
+  docsReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : docsOpen;
+  docs.hidden = false;
+  docs.setAttribute('aria-hidden', 'false');
+  docsOpen.setAttribute('aria-expanded', 'true');
+  docsBackground.forEach((element) => { element.inert = true; });
+  docs.scrollTop = 0;
+  docsLinks.forEach((link, index) => link.classList.toggle('active', index === 0));
+  docsClose.focus();
+}
+
+function closeDocs(): void {
+  if (docs.hidden) return;
+  docs.hidden = true;
+  docs.setAttribute('aria-hidden', 'true');
+  docsOpen.setAttribute('aria-expanded', 'false');
+  docsBackground.forEach((element) => { element.inert = false; });
+  docsReturnFocus?.focus();
+}
+
+docsOpen.addEventListener('click', openDocs);
+docsClose.addEventListener('click', closeDocs);
+
+docsLinks.forEach((link) => {
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    const target = docs.querySelector<HTMLElement>(link.hash);
+    target?.scrollIntoView({
+      behavior: docsReducedMotion.matches ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  });
+});
+
+const docsSections = $$<HTMLElement>('.docs-section');
+const docsObserver = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (!entry.isIntersecting) continue;
+    docsLinks.forEach((link) => link.classList.toggle('active', link.hash === `#${entry.target.id}`));
+  }
+}, { root: docs, rootMargin: '-15% 0px -75%', threshold: 0 });
+docsSections.forEach((section) => docsObserver.observe(section));
+
+// Registered before the app shortcuts below so the modal owns Escape and Tab,
+// and a crop cannot move while someone is reading its documentation.
+document.addEventListener('keydown', (event) => {
+  if (docs.hidden) return;
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    closeDocs();
+    return;
+  }
+  if (event.key !== 'Tab') {
+    event.stopImmediatePropagation();
+    return;
+  }
+
+  const focusable = $$<HTMLElement>('#docs button, #docs a[href]');
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (!first || !last) return;
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+  event.stopImmediatePropagation();
+});
+
 let dragDepth = 0;
 for (const name of ['dragenter', 'dragleave', 'dragover', 'drop'] as const) {
   document.addEventListener(name, (event) => {
     const e = event as DragEvent;
     if (!e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+    // A file dropped over the documentation belongs to neither the docs nor
+    // the hidden workspace. Prevent browser navigation, but leave the crop as
+    // it was when the reader opened this view.
+    if (!docs.hidden) { e.preventDefault(); return; }
     e.preventDefault();
     if (name === 'dragenter') { dragDepth++; document.body.classList.add('dragging'); }
     if (name === 'dragleave' && !--dragDepth) document.body.classList.remove('dragging');
@@ -996,6 +1082,7 @@ for (const name of ['dragenter', 'dragleave', 'dragover', 'drop'] as const) {
 // Ctrl/Cmd+V arrives here as a paste event, wherever the focus happens to be —
 // so a clipboard image takes exactly the same road as a dropped one.
 document.addEventListener('paste', (e) => {
+  if (!docs.hidden) return;
   const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith('image/'));
   if (!files.length) return;
   e.preventDefault();

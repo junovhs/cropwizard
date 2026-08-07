@@ -24,6 +24,8 @@
   <div class="brand">
     <span class="icon brand-mark" data-icon="crop"></span>
     <span class="brand-word"><b>crop</b><i>wizard</i></span>
+    <button id="docsOpen" class="docs-open" type="button"
+      aria-controls="docs" aria-expanded="false">Docs</button>
   </div>
 
   <!-- ---- left rail: the two jobs you can do to an image ---- -->
@@ -382,6 +384,112 @@
   <!-- Tap-outside target for the mobile sheet. Inert on desktop. -->
   <label class="sheet-scrim" for="panelToggle" aria-hidden="true"></label>
 </div>
+
+<!-- Documentation is a view of this app, not a trip away from it. Keeping it in
+     the same document means a half-finished crop is exactly where it was when
+     the reader comes back. The overlay owns its scroll, while the workspace
+     behind it stays fixed. -->
+<section id="docs" class="docs" role="dialog" aria-modal="true"
+  aria-labelledby="docsTitle" aria-hidden="true" hidden>
+  <header class="docs-bar">
+    <button id="docsClose" class="docs-back" type="button">← Back to app</button>
+    <span class="docs-brand"><b>crop</b><i>wizard</i></span>
+    <span class="docs-slash" aria-hidden="true">/</span>
+    <span class="docs-page">Documentation</span>
+  </header>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar" aria-label="Documentation sections">
+      <span class="docs-sidebar-label">On this page</span>
+      <nav class="docs-nav">
+        <a href="#docs-overview">Overview</a>
+        <a href="#docs-start">Getting started</a>
+        <a href="#docs-frame">Crop &amp; resize</a>
+        <a href="#docs-adjust">Adjust</a>
+        <a href="#docs-batch">Batch</a>
+        <a href="#docs-size">Output size</a>
+        <a href="#docs-export">Export</a>
+        <a href="#docs-shortcuts">Shortcuts</a>
+        <a href="#docs-privacy">Privacy</a>
+      </nav>
+    </aside>
+
+    <main class="docs-main">
+      <header class="docs-intro">
+        <p class="docs-kicker">Frame it once. Ship it everywhere.</p>
+        <h1 id="docsTitle">How Cropwizard works</h1>
+        <p>Crop, resize, adjust, and export images without sending them anywhere. The frame is the output: what you see inside it is what you save.</p>
+      </header>
+
+      <section id="docs-overview" class="docs-section">
+        <h2>Overview</h2>
+        <p>Cropwizard is a local, browser-based image workspace. Choose one image for a quick crop, or a stack when several images need the same destination size.</p>
+        <p>The app keeps three jobs separate: <strong>Crop &amp; Resize</strong> frames the image, <strong>Adjust</strong> changes its appearance, and <strong>Batch</strong> walks a queue through the same output setup.</p>
+      </section>
+
+      <section id="docs-start" class="docs-section">
+        <h2>Getting started</h2>
+        <ol>
+          <li>Drop an image anywhere on the app, paste one, or choose images from your device.</li>
+          <li>Pick the output size you need.</li>
+          <li>Drag the image beneath the frame and scroll or use the zoom controls.</li>
+          <li>Choose a format, then export.</li>
+        </ol>
+        <div class="docs-callout"><strong>Dropping several images starts Batch.</strong> Cropwizard explains the queue before you begin, and every image keeps its own framing.</div>
+      </section>
+
+      <section id="docs-frame" class="docs-section">
+        <h2>Crop &amp; resize</h2>
+        <p>The frame stays put while the image moves underneath it. Drag to reposition. Scroll, use the zoom slider, or type a zoom percentage to change scale.</p>
+        <p><strong>True size</strong> shows the output at its real pixel size when it fits. <strong>Smaller</strong> steps back when the real output is too large, and <strong>Enlarged for editing</strong> uses more of the available stage when the output is small.</p>
+        <p>Turn on <strong>Freeform</strong> when a fixed aspect ratio is not the point. The crop itself then defines the output dimensions.</p>
+      </section>
+
+      <section id="docs-adjust" class="docs-section">
+        <h2>Adjust</h2>
+        <p>Adjust is a separate room for visual changes. Its controls affect the active image while leaving the crop intact, so you can move between framing and appearance without starting over.</p>
+        <p>Use <strong>Reset all</strong> to return the adjustment channels to their original values. Undo and redo cover changes across the workspace.</p>
+      </section>
+
+      <section id="docs-batch" class="docs-section">
+        <h2>Batch</h2>
+        <p>Batch is for a set of images that share an output destination. Frame the current image, choose <strong>Finalize this crop</strong>, and Cropwizard advances to the next one.</p>
+        <p>The filmstrip shows what is ready and what still needs attention. You can step backward or forward at any time, or use <strong>Frame the rest</strong> when the remaining images can keep their automatic framing.</p>
+      </section>
+
+      <section id="docs-size" class="docs-section">
+        <h2>Output size</h2>
+        <p>Search the size picker by platform name, dimensions, or shape — for example <code>instagram story</code>, <code>1200 × 630</code>, or <code>16:9</code>. Pinned sizes remain close to the current file for one-click reuse.</p>
+        <p>The 1×, 2×, and 4× choices change export resolution without changing the composition. A quality indicator warns when the source image does not have enough pixels for the requested output.</p>
+      </section>
+
+      <section id="docs-export" class="docs-section">
+        <h2>Export</h2>
+        <p>Choose PNG for lossless graphics and transparency, JPEG for broadly compatible photographs, or WebP for smaller modern files. JPEG and WebP expose a quality control.</p>
+        <p>Filename options can preserve the original name, add output dimensions, or number a batch. The preview shows the resulting name before anything is saved. A batch downloads as one ZIP.</p>
+      </section>
+
+      <section id="docs-shortcuts" class="docs-section">
+        <h2>Shortcuts</h2>
+        <dl class="docs-shortcuts">
+          <div><dt><kbd>Arrow keys</kbd></dt><dd>Nudge the image; hold Shift for a larger step.</dd></div>
+          <div><dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>Zoom in or out.</dd></div>
+          <div><dt><kbd>0</kbd></dt><dd>Fill the frame.</dd></div>
+          <div><dt><kbd>F</kbd></dt><dd>Cycle the available frame views.</dd></div>
+          <div><dt><kbd>Enter</kbd></dt><dd>Finalize the current image in Batch.</dd></div>
+          <div><dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Move backward or forward through the queue.</dd></div>
+          <div><dt><kbd>Ctrl/⌘ Z</kbd></dt><dd>Undo; add Shift to redo.</dd></div>
+        </dl>
+      </section>
+
+      <section id="docs-privacy" class="docs-section">
+        <h2>Privacy</h2>
+        <p>Your images stay in this browser tab. Cropwizard has no upload step, account, analytics request, or server-side image processor. Loading, editing, and export happen on your device.</p>
+        <div class="docs-callout">Closing or reloading the tab clears image data from the workspace. Export anything you want to keep first.</div>
+      </section>
+    </main>
+  </div>
+</section>
 
 <div id="picker" class="picker" hidden role="dialog" aria-modal="true" aria-label="Choose an output size">
   <div class="picker-panel">
