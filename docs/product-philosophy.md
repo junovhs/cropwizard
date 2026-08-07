@@ -96,32 +96,3 @@ Four questions. A no to any of them is usually a no.
    goes to hide.
 4. **Is it something you'd do in a pinch?** If it belongs to a planned session
    at a desk, it belongs in a different application.
-
-## What has already been rejected, and why
-
-Kept because the reasons are more useful than the conclusions.
-
-| Idea | Why not |
-| --- | --- |
-| **Magnetic centre snap** (removed, `UX-22`) | Dead centre was already reachable — double-click fills to the largest centred crop, and every zoom route works about the frame's centre, so a centred framing stays centred as you zoom in. That left the magnet buying only re-centring after an exploratory drag, which is not worth a pull the pointer has to fight. |
-| **Snapping to the image edges** | The crop is already hard-clamped to the picture, so flush-to-edge is free — you shove the crop at the edge and it stops there. A magnet at a wall is redundant with the wall. |
-| **Snapping to sharp integer ratios** (1×, 2×, 4× the output) | Proposed to keep exports sharp. It would have bought nothing: the resampler already handles this properly. A real-sounding problem that had already been solved. |
-| **A configurable grid size** ("snap to 8px") | A layout tool's idea. Nothing in a photograph happens at 8px intervals, so there is no defensible default — see question 3. |
-| **A persistent grid overlay** | The thirds guides already fade in only while you are dragging and vanish afterwards, which is the right instinct. A standing lattice is the app taking the photograph back. |
-
-The pattern across all five is worth naming: **most rejected features were
-solving a problem that the app's existing physics had already solved.** Check
-that first.
-
-## Where the standing decisions live
-
-This document is the spirit. The binding decisions are ADRs, and they are the
-ones to read before changing behaviour:
-
-- `DEC-01` — zero runtime dependencies, no third-party requests, assets vendored.
-- `DEC-03` — the frame previews at true output scale by default.
-- `DEC-04` — one image is the default; a multi-image drop enters batch,
-  announced and reversible.
-
-If something here and an accepted ADR disagree, the ADR wins, and one of the two
-needs updating.
